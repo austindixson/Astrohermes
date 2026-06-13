@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Build artifacts
+build/
+fresh_build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad
+
+# Xcode user data
+xcuserdata/
+Pip.xcodeproj/project.xcworkspace/xcuserdata/
+Pip.xcodeproj/xcuserdata/
+
+# Release packaging scratch
+*.zip
+dist/
