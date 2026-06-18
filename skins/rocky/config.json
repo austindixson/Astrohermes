@@ -1,0 +1,9 @@
+{
+  "name": "rocky",
+  "display_name": "Rocky",
+  "asset_prefix": "rocky",
+  "style_prompt": "Rocky from Project Hail Mary — living stone golem. Weathered light tan/beige cracked stone plates, dark charcoal mechanical pin joints between segments, bright teal/cyan glowing horizontal stripes on shoulder segments. Cel-shaded 2D game sprite art with clean black outlines, matte rocky texture with chips and cracks, pale cream edge highlights. Heavy deliberate stone feel.",
+  "style_ref": "reference-sheet.png",
+  "mode": "restyle",
+  "foot_frac": 0.873
+}

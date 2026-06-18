@@ -21,57 +21,62 @@ enum Rival {
     }
 }
 
-/// Borderless, transparent, non-activating panel — floats above other windows
-/// without ever stealing focus.
+/// Borderless floating panel — can become key when the composer is active.
 final class MascotPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if let responder = firstResponder, responder !== self, responder.performKeyEquivalent(with: event) {
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
-/// Catches all mouse events itself (so SwiftUI content stays inert) and
-/// forwards them to the controller. Only relevant when click-through is off.
+/// Passes mouse hits through to SwiftUI; transparent areas are click-through.
 final class MascotContainerView: NSView {
     weak var controller: MascotController?
 
     override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let superview else { return nil }
         let p = convert(point, from: superview)
-        return bounds.contains(p) ? self : nil
+        guard bounds.contains(p) else { return nil }
+        for subview in subviews.reversed() {
+            let local = convert(p, to: subview)
+            if let hit = subview.hitTest(local) { return hit }
+        }
+        return nil
     }
-
-    override func rightMouseDown(with event: NSEvent) {
-        controller?.showContextMenu(with: event, in: self)
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        controller?.dragBegan(event)
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        controller?.dragMoved(event)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        controller?.dragEnded(event)
-    }
-
-    // MARK: - Drag destination (easter egg)
-    // Dragging a rival app icon (ChatGPT, Codex) over Pip makes him lose it. We never accept
-    // the drop (operation stays empty, so the cursor shows the "no" badge — fitting),
-    // we only use the hover to provoke him. Works without Accessibility permission,
-    // independent of the Dock-hover rival path.
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         if Self.draggingIsRival(sender) { controller?.rivalDraggedNear() }
+        if controller?.isChatOpen == true, !Self.filePaths(from: sender).isEmpty { return .copy }
         return []
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
         if Self.draggingIsRival(sender) { controller?.rivalDraggedNear() }
+        if controller?.isChatOpen == true, !Self.filePaths(from: sender).isEmpty { return .copy }
         return []
     }
 
-    /// True when the dragged item is a rival app (by bundle id, falling back to
-    /// the file name) — matched against the pasteboard's file URLs.
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard controller?.isChatOpen == true else { return false }
+        let paths = Self.filePaths(from: sender)
+        guard !paths.isEmpty else { return false }
+        NotificationCenter.default.post(name: .pipFileDrop, object: paths)
+        controller?.activateComposer()
+        return true
+    }
+
+    static func filePaths(from sender: NSDraggingInfo) -> [String] {
+        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        guard let urls = sender.draggingPasteboard
+            .readObjects(forClasses: [NSURL.self], options: opts) as? [URL] else { return [] }
+        return urls.map(\.path)
+    }
+
     static func draggingIsRival(_ sender: NSDraggingInfo) -> Bool {
         let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
         guard let urls = sender.draggingPasteboard
@@ -83,25 +88,67 @@ final class MascotContainerView: NSView {
     }
 }
 
+/// SwiftUI host that accepts first click without activating the app first.
+final class InteractiveHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override var mouseDownCanMoveWindow: Bool { false }
+}
+
+/// Bridges onscreen-agent UI callbacks to MascotController without a retain cycle.
+final class OnscreenAgentBridge: OnscreenAgentHandling {
+    weak var controller: MascotController?
+
+    func onscreenSend(_ text: String) { controller?.engine.sendChat(text) }
+    func onscreenStopChat() { controller?.engine.stopChat() }
+    func onscreenCloseChat() { controller?.toggleChat() }
+    func onscreenExpandChat() { controller?.engine.expandChat(); controller?.resizeForChat(open: true) }
+    func onscreenCollapseChat() { controller?.engine.collapseChat(); controller?.resizeForChat(open: true) }
+    func onscreenComposerActivated() { controller?.activateComposer() }
+    func onscreenAvatarHover(_ hovering: Bool) { controller?.engine.setAvatarHovered(hovering) }
+    func onscreenAvatarDragBegan() { controller?.avatarDragBegan() }
+    func onscreenAvatarDragChanged(translation: CGSize) { controller?.avatarDragChanged() }
+    func onscreenAvatarDragEnded() { controller?.avatarDragEnded() }
+}
+
 final class MascotController: NSObject {
 
-    static let windowSize = NSSize(width: 280, height: 230)
+    static var windowSize: NSSize {
+        SpaceAgentLayout.windowSize(chatOpen: false, mode: .compact)
+    }
 
+    private func currentWindowSize() -> NSSize {
+        let pose = model.pose
+        let compactLoading = pose.chatOpen
+            && pose.chatDisplayMode == .compact
+            && pose.chatLoading
+            && (pose.compactAssistantText?.isEmpty ?? true)
+        return SpaceAgentLayout.windowSize(
+            chatOpen: pose.chatOpen,
+            mode: pose.chatDisplayMode,
+            compactAssistantText: pose.compactAssistantText,
+            compactLoading: compactLoading,
+            chatTraceActive: pose.chatTraceActive,
+            composerTextHeight: composerTextHeight,
+            uiBubblePhase: pose.uiBubblePhase
+        )
+    }
+
+    fileprivate let engine: WalkEngine
+    private let agentBridge = OnscreenAgentBridge()
     private let store: UsageStore
-    private let poller: OAuthUsagePoller
-    private let bridge: StatuslineBridge
+    private let poller: HermesStatsPoller
     private let panel: MascotPanel
-    private let engine: WalkEngine
     private let model = PoseModel()
     private var statusItem: NSStatusItem?
     private var displayLink: CADisplayLink?
     private var containerView: MascotContainerView!
+    private var hostingView: InteractiveHostingView<MascotRootView>!
     private var tooltipTimer: Timer?
     private var rivalTimer: Timer?
 
-    private var dragGrabOffset = NSPoint.zero
-    private var popHandoffPending = false       // re-anchor the grab offset once the pop-out finishes
-    private var dragActive = false
+    private var avatarDragActive = false
+    private var composerTextHeight: CGFloat = SpaceAgentChatTokens.composerRowHeightCompact
+    private var keyEventMonitor: Any?
 
     // Auto-hide Dock "platform": no API exposes its geometry, so estimate the
     // top edge above the bottom (≈ tilesize 57 + padding) and detect the reveal
@@ -109,10 +156,9 @@ final class MascotController: NSObject {
     static let dockTopFromBottom: CGFloat = 80
     private var dockRevealed = false
 
-    init(store: UsageStore, poller: OAuthUsagePoller, bridge: StatuslineBridge) {
+    init(store: UsageStore, poller: HermesStatsPoller) {
         self.store = store
         self.poller = poller
-        self.bridge = bridge
 
         panel = MascotPanel(
             contentRect: NSRect(origin: .zero, size: Self.windowSize),
@@ -138,16 +184,22 @@ final class MascotController: NSObject {
         engine.windowSize = Self.windowSize
 
         super.init()
+        agentBridge.controller = self
 
-        let container = MascotContainerView(frame: NSRect(origin: .zero, size: Self.windowSize))
+        let container = MascotContainerView(frame: NSRect(origin: .zero, size: currentWindowSize()))
         container.controller = self
-        container.registerForDraggedTypes([.fileURL])   // ChatGPT-icon-dragged-near easter egg
-        let hosting = NSHostingView(rootView: MascotRootView(model: model))
+        container.registerForDraggedTypes([.fileURL])
+        let hosting = InteractiveHostingView(rootView: MascotRootView(model: model, handler: agentBridge))
         hosting.frame = container.bounds
         hosting.autoresizingMask = [.width, .height]
+        hosting.wantsLayer = true
+        hosting.layer?.masksToBounds = false
         container.addSubview(hosting)
+        container.wantsLayer = true
+        container.layer?.masksToBounds = false
         panel.contentView = container
         containerView = container
+        hostingView = hosting
 
         engine.visibleFrameProvider = { [weak self] in
             guard let self else { return .zero }
@@ -158,8 +210,86 @@ final class MascotController: NSObject {
         engine.moveWindow = { [weak self] origin in
             self?.panel.setFrameOrigin(origin)
         }
+        engine.physics.moveWindow = engine.moveWindow
+        engine.physics.visibleFrameProvider = { [weak engine] in engine?.visibleFrameProvider?() ?? .zero }
 
         setUpStatusItem()
+
+        NotificationCenter.default.addObserver(
+            forName: .pipChatResize, object: nil, queue: .main) { [weak self] note in
+            if let open = note.object as? Bool { self?.resizeForChat(open: open) }
+        }
+        NotificationCenter.default.addObserver(
+            forName: .pipChatMode, object: nil, queue: .main) { [weak self] _ in
+            self?.resizeForChat(open: true)
+        }
+        NotificationCenter.default.addObserver(
+            forName: .pipComposerHeight, object: nil, queue: .main) { [weak self] note in
+            guard let height = note.object as? CGFloat else { return }
+            self?.composerTextHeight = height
+            if self?.model.pose.chatOpen == true {
+                self?.resizeForChat(open: false)
+            }
+        }
+
+        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.model.pose.chatOpen else { return event }
+            guard event.modifierFlags.contains(.command),
+                  let key = event.charactersIgnoringModifiers?.lowercased() else { return event }
+            guard self.panel.isKeyWindow || self.panel.isMainWindow else { return event }
+
+            switch key {
+            case "v":
+                if SpaceAgentComposerTextContainer.pasteIntoActiveComposer() { return nil }
+            case "c":
+                if SpaceAgentComposerTextContainer.copyFromActiveComposer() { return nil }
+            case "x":
+                if SpaceAgentComposerTextContainer.cutFromActiveComposer() { return nil }
+            case "a":
+                if SpaceAgentComposerTextContainer.selectAllInActiveComposer() { return nil }
+            default:
+                break
+            }
+            return event
+        }
+    }
+
+    func activateComposer() {
+        NSApp.activate(ignoringOtherApps: true)
+        updateComposerEditingMode()
+        panel.makeKeyAndOrderFront(nil)
+        guard let composer = SpaceAgentComposerTextContainer.activeComposer else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.panel.makeFirstResponder(composer.textView)
+            composer.isEditing = true
+            composer.updatePlaceholderVisibility()
+            composer.refreshInsertionPoint()
+        }
+    }
+
+    private func updateComposerEditingMode() {
+        if model.pose.chatOpen {
+            panel.styleMask.remove(.nonactivatingPanel)
+            panel.becomesKeyOnlyIfNeeded = false
+        } else {
+            if !panel.styleMask.contains(.nonactivatingPanel) {
+                panel.styleMask.insert(.nonactivatingPanel)
+            }
+            panel.becomesKeyOnlyIfNeeded = true
+        }
+    }
+
+    private func updateChatBubblePlacement() {
+        guard let screen = panel.screen ?? NSScreen.main else { return }
+        let vf = screen.visibleFrame
+        let midY = panel.frame.midY
+        let belowHead = midY > vf.minY + vf.height * 0.55
+        var pose = model.pose
+        if pose.chatBubbleBelowHead != belowHead {
+            pose.chatBubbleBelowHead = belowHead
+            model.pose = pose
+        }
     }
 
     func show() {
@@ -168,6 +298,12 @@ final class MascotController: NSObject {
         panel.setFrameOrigin(engine.startPosition(in: visible))
         panel.orderFrontRegardless()
         panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)) + 1)  // above the Dock
+        syncContentLayout()
+        engine.physics.windowSize = currentWindowSize()
+
+        if !model.pose.chatOpen {
+            engine.toggleChat()
+        }
 
         let link = panel.displayLink(target: engine, selector: #selector(WalkEngine.tick(_:)))
         link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
@@ -196,14 +332,14 @@ final class MascotController: NSObject {
     private func refreshTooltip() {
         containerView.toolTip = store.hasFreshData
             ? nil
-            : "log into Claude Code to wake me up"
+            : "start hermes gateway to wake me up"
     }
 
     // MARK: - Status bar item (always reachable, even with click-through on)
 
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = "🐾"
+        item.button?.title = "🧑‍🚀"
         item.button?.toolTip = mascotName
         let menu = NSMenu()
         menu.delegate = self
@@ -224,12 +360,20 @@ final class MascotController: NSObject {
         menu.addItem(headerItem())
         menu.addItem(.separator())
 
+        // Primary action: Chat
+        let chatItem = actionItem("💬 Chat with Hermes", action: #selector(openChat),
+                                  symbol: "bubble.left.and.bubble.right.fill")
+        chatItem.keyEquivalent = "k"
+        chatItem.keyEquivalentModifierMask = .command
+        menu.addItem(chatItem)
+        menu.addItem(.separator())
+
         let goHome = actionItem("Go Home", action: #selector(goHome), symbol: "house.fill")
         goHome.isEnabled = !engine.isHomeOrHeading
         menu.addItem(goHome)
 
         menu.addItem(actionItem(
-            engine.paused ? "Resume Walking" : "Pause Walking",
+            engine.paused ? "Resume Roaming" : "Pause Roaming",
             action: #selector(togglePause),
             symbol: engine.paused ? "figure.walk" : "pause.fill"))
 
@@ -261,11 +405,6 @@ final class MascotController: NSObject {
         menu.addItem(actionItem("Refresh Usage Now", action: #selector(refreshNow),
                                 symbol: "arrow.clockwise"))
 
-        let install = actionItem(
-            bridge.isInstalled ? "Reinstall Statusline Bridge…" : "Install Statusline Bridge…",
-            action: #selector(installBridge), symbol: "terminal.fill")
-        menu.addItem(install)
-
         menu.addItem(.separator())
         let login = actionItem("Launch at Login", action: #selector(toggleLaunchAtLogin),
                                symbol: "power")
@@ -278,8 +417,8 @@ final class MascotController: NSObject {
 
     /// Claude-themed status banner pinned to the top of the menu.
     private func headerItem() -> NSMenuItem {
-        let updated = store.snapshot.lastUpdated > .distantPast
-            ? "updated \(UsageStore.ago(store.snapshot.lastUpdated, from: Date())) · \(store.lastSource)"
+        let updated = store.stats.lastUpdated > .distantPast
+            ? "updated \(UsageStore.ago(store.stats.lastUpdated, from: Date())) · \(store.lastSource)"
             : ""
         let header = MenuHeaderView(mood: store.mood().rawValue,
                                     stats: store.usageStats(),
@@ -304,6 +443,48 @@ final class MascotController: NSObject {
     }
 
     // MARK: - Menu actions
+
+    func toggleChat() {
+        engine.toggleChat()
+    }
+
+    var isChatOpen: Bool { model.pose.chatOpen }
+
+    func toggleChatMode() {
+        if model.pose.chatDisplayMode == .compact {
+            engine.expandChat()
+        } else {
+            engine.collapseChat()
+        }
+        resizeForChat(open: true)
+    }
+
+    private func syncContentLayout() {
+        guard let content = panel.contentView else { return }
+        containerView.frame = content.bounds
+        hostingView.frame = containerView.bounds
+        engine.windowSize = NSSize(width: content.bounds.width, height: content.bounds.height)
+        engine.physics.windowSize = engine.windowSize
+    }
+
+    fileprivate func resizeForChat(open: Bool) {
+        updateChatBubblePlacement()
+        updateComposerEditingMode()
+
+        let target = currentWindowSize()
+        var frame = panel.frame
+        let sizeChanged = abs(frame.size.width - target.width) > 0.5
+            || abs(frame.size.height - target.height) > 0.5
+        frame.size = target
+        // AppKit origin is bottom-left: keep origin.y fixed so the window grows
+        // upward and the astronaut stays planted on screen.
+        panel.setFrame(frame, display: true, animate: open && sizeChanged)
+        syncContentLayout()
+        engine.physics.windowSize = currentWindowSize()
+        if let visible = (panel.screen ?? NSScreen.main)?.visibleFrame {
+            engine.physics.syncFromWindow(in: visible)
+        }
+    }
 
     @objc private func togglePause() {
         engine.paused.toggle()
@@ -421,6 +602,10 @@ final class MascotController: NSObject {
         panel.ignoresMouseEvents.toggle()
     }
 
+    @objc private func openChat() {
+        engine.toggleChat()
+    }
+
     @objc private func setPin(_ sender: NSMenuItem) {
         engine.pin = WalkEngine.Pin(rawValue: sender.tag) ?? .none
     }
@@ -429,34 +614,12 @@ final class MascotController: NSObject {
         engine.showBadgePersistent.toggle()
     }
 
-    @objc private func refreshNow() {
-        poller.pollNow()
+    @objc private func cycleAppearance() {
+        engine.cycleAppearance()
     }
 
-    @objc private func installBridge() {
-        NSApp.activate(ignoringOtherApps: true)
-        let confirm = NSAlert()
-        confirm.messageText = "Install the statusline bridge?"
-        confirm.informativeText = """
-        This writes \(bridge.scriptPath) and points the statusLine setting in \
-        ~/.claude/settings.json at it (your current settings.json is backed up \
-        first; an existing statusline command keeps working via chaining). \
-        While Claude Code runs, it will then feed \(mascotName) official usage numbers.
-        """
-        confirm.addButton(withTitle: "Install")
-        confirm.addButton(withTitle: "Cancel")
-        guard confirm.runModal() == .alertFirstButtonReturn else { return }
-
-        let result = NSAlert()
-        do {
-            result.messageText = "Statusline bridge installed"
-            result.informativeText = try bridge.install()
-        } catch {
-            result.messageText = "Install failed"
-            result.informativeText = error.localizedDescription
-            result.alertStyle = .warning
-        }
-        result.runModal()
+    @objc private func refreshNow() {
+        poller.pollNow()
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -480,54 +643,32 @@ final class MascotController: NSObject {
         NSApp.terminate(nil)
     }
 
-    // MARK: - Manual dragging (only reachable when click-through is off)
+    // MARK: - Avatar dragging (Space Agent shell)
 
-    func dragBegan(_ event: NSEvent) {
-        if model.pose.bubbleText != nil {
-            engine.dismissBubble()
-            return
+    func avatarDragBegan() {
+        if model.pose.bubbleText != nil { engine.dismissBubble() }
+        if let visible = engine.physics.visibleFrameProvider?() {
+            engine.physics.syncFromWindow(in: visible)
         }
-        dragActive = true
-        dragGrabOffset = NSPoint(
-            x: NSEvent.mouseLocation.x - panel.frame.origin.x,
-            y: NSEvent.mouseLocation.y - panel.frame.origin.y)
-        engine.beginDrag()
-        popHandoffPending = engine.isPoppingOut
+        engine.physics.beginDrag(mouse: NSEvent.mouseLocation)
     }
 
-    func dragMoved(_ event: NSEvent) {
-        guard dragActive else { return }
-        // While popping out of the side hole, Pip stays pinned at the edge and
-        // the engine owns his window — ignore the cursor entirely until he's out.
-        if engine.isPoppingOut { return }
+    func avatarDragChanged() {
+        engine.physics.updateDrag(mouse: NSEvent.mouseLocation)
+    }
 
-        let loc = NSEvent.mouseLocation
-        let target = NSPoint(x: loc.x - dragGrabOffset.x, y: loc.y - dragGrabOffset.y)
-        // Just popped free at the edge: ease over to the cursor (rather than
-        // snapping) so he smoothly "comes to hand," then follow 1:1.
-        if popHandoffPending {
-            let cur = panel.frame.origin
-            let dx = target.x - cur.x, dy = target.y - cur.y
-            if dx * dx + dy * dy < 9 {
-                popHandoffPending = false
+    func avatarDragEnded() {
+        let result = engine.physics.endDrag()
+        if result.tappedHiddenEdge, let visible = engine.physics.visibleFrameProvider?() {
+            engine.physics.revealHiddenEdge(in: visible)
+            activateComposer()
+        } else if result.tappedAvatar {
+            if model.pose.chatOpen {
+                toggleChatMode()
             } else {
-                let eased = NSPoint(x: cur.x + dx * 0.35, y: cur.y + dy * 0.35)
-                panel.setFrameOrigin(eased)
-                engine.noteDragMove(origin: eased)
-                return
+                engine.toggleChat()
             }
         }
-        panel.setFrameOrigin(target)
-        engine.noteDragMove(origin: target)
-    }
-
-    func dragEnded(_ event: NSEvent) {
-        guard dragActive else { return }
-        dragActive = false
-        // No snap: the engine takes over from here and drops Pip under
-        // gravity onto the bottom edge of whatever screen we're on now
-        // (this is also how you move Pip to another monitor).
-        engine.endDrag(atOrigin: panel.frame.origin)
     }
 }
 

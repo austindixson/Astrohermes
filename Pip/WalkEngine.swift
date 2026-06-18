@@ -2,6 +2,15 @@ import AppKit
 import QuartzCore
 import Observation
 
+/// Which screen edge Pip is peeking from.
+enum PeekEdge {
+    case left, right, top, bottom
+}
+
+enum ChatDisplayMode: Equatable {
+    case compact, full
+}
+
 /// Everything the renderer needs to draw one frame of the mascot.
 struct Pose: Equatable {
     var scaleX: CGFloat = 1          // facing (+right / −left), magnitude < 1 mid-turnaround
@@ -35,6 +44,26 @@ struct Pose: Equatable {
     var badgeSafeMinX: CGFloat = 0     // on-screen window-x span, so the hover badge
     var badgeSafeMaxX: CGFloat = 280   // can dodge the screen edge and never clip
     var badgeDrop: CGFloat = 0         // push the badge down toward the head (peek/home)
+    var peekEdge: PeekEdge = .left    // which screen edge Pip is peeking from
+    var chatOpen = false               // inline chat bubble visible above Pip
+    var chatDisplayMode: ChatDisplayMode = .compact
+    var compactAssistantText: String?  // latest assistant reply or live trace line
+    var chatTraceActive = false        // bubble shows single-line progress, not final reply
+    var uiBubblePhase: SpaceAgentBubblePhase = .visible
+    var chatMessages: [ChatBubbleMessage] = []
+    var chatLoading = false
+    var chatStatusText: String?        // shown as composer placeholder while executing
+    var chatBubbleBelowHead = false    // bubble placement: below head when near top of screen
+    var appearance: String = Appearance.mascot.rawValue  // "rocky" or "mascot"
+    var hiddenEdge: OnscreenAgentHiddenEdge?
+    var isDraggingAgent = false
+}
+
+/// A single message in Pip's inline chat bubble.
+struct ChatBubbleMessage: Equatable, Identifiable {
+    let id = UUID()
+    let text: String
+    let isUser: Bool
 }
 
 @Observable
@@ -48,13 +77,15 @@ final class PoseModel {
 /// decoupled — poses are quantized to ~8–11 fps so the steps read as steps.
 final class WalkEngine: NSObject {
 
+    let physics = OnscreenAgentPhysics()
+
     // MARK: Tunables
     var baseSpeed: CGFloat = 34                       // points/sec at speedFactor 1.0
     var idleEvery: ClosedRange<Double> = 7...18       // seconds between idle pauses
     var idleLength: ClosedRange<Double> = 2.5...6     // seconds an idle pause lasts
     var turnDuration: Double = 0.55                   // 6 pivot frames at ~11 fps
-    static let characterWidth: CGFloat = 110          // visual sprite width used for edge collision
-    static let interactiveWidth: CGFloat = 180        // wider pickup/air/landing poses; keeps them on-screen near edges
+    static let characterWidth: CGFloat = 72          // Space Agent avatar width for edge collision
+    static let interactiveWidth: CGFloat = 120     // shell width when chat closed
     // Peeking "home": Pip is parked off the LEFT screen edge, poking his head
     // out from behind it. `peekInset` is the window-x coordinate that lands on
     // the screen's left edge — content left of it is hidden behind the edge.
@@ -65,7 +96,6 @@ final class WalkEngine: NSObject {
     // left edge, not down in the corner). Eased through the pop-out / tuck-in
     // so he descends to the ground as he emerges and rises back in going home.
     static let peekLift: CGFloat = 72
-    static let peekBadgeDrop: CGFloat = 92   // how far to drop the hover badge toward his head at home
     static let peekRiseDuration: Double = 0.4   // after tucking in at the corner, rise up to the lifted peek
     private var peekRiseStart: TimeInterval = -1000   // far past → already risen (launch starts lifted)
 
@@ -145,6 +175,7 @@ final class WalkEngine: NSObject {
     private var state: State = .peeking
     private(set) var facing: CGFloat = 1
     private var x: CGFloat = 0
+    private var peekEdge: PeekEdge = .left   // which edge Pip is currently peeking from
     private var lastSentOrigin = NSPoint(x: -99999, y: -99999)
     private var lastTimestamp: TimeInterval = 0
     private var walkClock: Double = 0
@@ -194,6 +225,7 @@ final class WalkEngine: NSObject {
     var currentMood: Mood { currentMoodValue }
     var isDragging: Bool { if case .dragging = state { return true } else { return false } }
     var isPeeking: Bool { if case .peeking = state { return true } else { return false } }
+    var currentPeekEdge: PeekEdge { peekEdge }
     /// Roaming on the open floor (so he should ride the Dock platform) — not
     /// tucked at his edge home or being carried.
     private var onOpenGround: Bool {
@@ -208,7 +240,7 @@ final class WalkEngine: NSObject {
     func provokeByRival() {
         let now = CACurrentMediaTime()
         provokedUntil = now + Self.provokeHold
-        currentMoodValue = .mad
+        currentMoodValue = .antsy
         currentAnger = 1.0
         if isPeeking, !goingHome { state = .walking }   // storm out to confront the rival
         if now >= rivalBubbleNextAt {
@@ -219,22 +251,14 @@ final class WalkEngine: NSObject {
     }
     /// True while heading back to / tucking into the edge (so the menu can hide
     /// the option once he's already home or on his way).
-    var isHomeOrHeading: Bool {
-        if goingHome { return true }
-        if case .peeking = state { return true }
-        if case .tuckingIn = state { return true }
-        return false
-    }
+    var isHomeOrHeading: Bool { physics.hiddenEdge != nil }
 
     /// Send Pip back to his side-edge home: walk to the left edge, then play the
     /// pop-out emergence in reverse to back into the hole.
     func goHome() {
-        guard !isHomeOrHeading else { return }
-        goingHome = true
-        switch state {
-        case .dragging, .falling, .landing: break   // let the interaction finish; he'll head home once walking
-        default: state = .walking
-        }
+        guard let visible = visibleFrameProvider?() else { return }
+        goingHome = false
+        physics.goHome(in: visible)
     }
 
     init(store: UsageStore, model: PoseModel) {
@@ -244,18 +268,30 @@ final class WalkEngine: NSObject {
     }
 
     func startPosition(in visible: NSRect) -> NSPoint {
-        // Default "home": tucked behind the LEFT edge, peeking his head out and
-        // facing right (into the screen). Grab + drop pulls him out to roam.
+        physics.windowSize = windowSize
+        physics.placeInitial(in: visible)
         state = .peeking
+        peekEdge = .left
         facing = 1
-        x = peekX(in: visible)
-        return NSPoint(x: x, y: visible.minY + 1 + Self.peekLift)
+        x = physics.windowOrigin(in: visible).x
+        return physics.windowOrigin(in: visible)
     }
 
-    /// Window origin x that parks Pip mostly off the left edge, with `peekInset`
-    /// worth of window held at the screen's left edge (the rest hidden behind it).
+    /// Window origin x parked at the given screen edge (fully on-screen).
+    private func peekX(for edge: PeekEdge, in visible: NSRect) -> CGFloat {
+        switch edge {
+        case .left:
+            return visible.minX
+        case .right:
+            return visible.maxX - windowSize.width
+        case .top, .bottom:
+            return visible.minX + (visible.width - windowSize.width) / 2
+        }
+    }
+
+    /// Legacy convenience — defaults to the current peekEdge.
     private func peekX(in visible: NSRect) -> CGFloat {
-        return visible.minX - Self.peekInset
+        return peekX(for: peekEdge, in: visible)
     }
 
     /// Window inset for a given pop/tuck frame, tied to the frame itself (no
@@ -267,27 +303,8 @@ final class WalkEngine: NSObject {
         return popEmergeInset + (peekInset - popEmergeInset) * t
     }
 
-    /// Vertical lift of the window above the dock: full while peeking, eased to
-    /// 0 as he pops out (drops to the ground), eased back up as he tucks home.
-    private func peekYLift(now: TimeInterval) -> CGFloat {
-        switch state {
-        case .peeking:
-            // Rise up to the lifted peek AFTER tucking in at the corner.
-            let p = max(0, min(1, (now - peekRiseStart) / Self.peekRiseDuration))
-            return Self.peekLift * CGFloat(p * p * (3 - 2 * p))
-        case .dragging(let start) where poppingOut:
-            // Yanked down to the corner during the first (pull) part, then he
-            // emerges from there on the ground.
-            let p = min(1, (now - start) / Self.popDuration)
-            guard p < Self.popPullFrac else { return 0 }
-            let pp = p / Self.popPullFrac
-            return Self.peekLift * CGFloat(1 - pp * pp * (3 - 2 * pp))
-        default:
-            // Tucking in (and everything else) stays on the ground / bottom
-            // corner; the rise only happens once he's settled into the peek.
-            return 0
-        }
-    }
+    /// Vertical lift while peeking — disabled for the on-screen Space Agent shell.
+    private func peekYLift(now: TimeInterval) -> CGFloat { 0 }
 
     /// Stable edge-peek idle: the body never moves (the frames are pre-aligned
     /// to the edge), only the face changes. A calm timeline of (frame, seconds)
@@ -338,14 +355,14 @@ final class WalkEngine: NSObject {
         if now - lastMoodCheck > 1.0 {
             lastMoodCheck = now
             let provoked = now < provokedUntil          // rival brought near him
-            currentAnger = provoked ? 1.0 : store.angerLevel()   // drives the fuming tier
-            let newMood = provoked ? .mad : store.mood()
+            currentAnger = provoked ? 1.0 : min(1, max(0, store.stats.memoryPct / 100))   // drives the fuming tier
+            let newMood = provoked ? .antsy : store.mood()
             if newMood != currentMoodValue {
                 currentMoodValue = newMood
                 switch newMood {
                 case .sleepy:
                     if !isDragging, !isPeeking, !goingHome { state = .sitting }
-                case .mad:
+                case .antsy:
                     break   // advance() keeps him fuming in fits (below)
                 default:
                     if case .sitting = state, pin == .none { state = .walking }
@@ -357,62 +374,15 @@ final class WalkEngine: NSObject {
         let visible = visibleFrameProvider?() ?? .zero
         guard visible.width > 10 else { return }
         lastVisible = visible
-        // Walk-cycle width drives edge turnaround + the normal resting clamp.
-        let margin = (windowSize.width - Self.characterWidth) / 2
-        let minX = visible.minX - margin
-        let maxX = visible.maxX + margin - windowSize.width
 
-        advance(dt: dt, now: now, minX: minX, maxX: maxX)
-
-        // The pickup / air / landing poses are visually wider than the walk
-        // cycle (out-flung arms, hands-to-face, motion lines), so they need a
-        // bigger on-screen margin or they clip against a screen edge when Pip
-        // is dropped there. Ease into it mid-fall so there's no sideways pop.
-        let safeMargin = (windowSize.width - Self.interactiveWidth) / 2
-        let sMinX = visible.minX - safeMargin
-        let sMaxX = visible.maxX + safeMargin - windowSize.width
-        switch state {
-        case .peeking:
-            // Deliberately off the left edge — don't clamp back on-screen.
-            x = peekX(in: visible)
-        case .tuckingIn:
-            break   // advance() pins x at the edge for the reverse emergence
-        case .dragging where poppingOut:
-            break   // advance() pins x at the edge for the emergence
-        case .falling:
-            let target = min(max(x, sMinX), sMaxX)
-            x += (target - x) * CGFloat(min(1, dt * 9))
-        case .landing:
-            x = min(max(x, sMinX), sMaxX)
-        default:
-            x = min(max(x, minX), maxX)
-        }
-
-        // Keep feet pinned to the bottom edge even if the Dock/screen changes
-        // (airHeight > 0 only mid-drop, while gravity brings Pip down). During
-        // the pop-out the engine also owns the window (he's pinned at the edge,
-        // not yet following the cursor), so move it then too.
-        // Ground line: normally the bottom of the screen, but ride the top of a
-        // revealed (auto-hide) Dock when roaming, so he stands on it. Smoothed so
-        // he rises/sinks with the Dock's reveal/hide animation.
-        var groundBase = visible.minY
-        if onOpenGround, let dockTop = dockGroundProvider?() { groundBase = dockTop }
-        if !smoothGroundReady { smoothGround = groundBase; smoothGroundReady = true }
-        smoothGround += (groundBase - smoothGround) * CGFloat(min(1, dt * 7))
-
-        if !isDragging || poppingOut {
-            let origin = NSPoint(x: x, y: smoothGround + 1 + airHeight + peekYLift(now: now))
-            if abs(origin.x - lastSentOrigin.x) > 0.01 || abs(origin.y - lastSentOrigin.y) > 0.01 {
-                lastSentOrigin = origin
-                moveWindow?(origin)
-            }
-        }
+        physics.windowSize = windowSize
+        physics.tick(dt: dt, now: now)
+        x = physics.windowOrigin(in: visible).x
 
         updateBlink(now: now)
-        if tickCount % 15 == 0 { updateHover(visible: visible) }
         updateBubble(now: now)
 
-        // Publish poses at a lower rate than the window moves: the window
+        // Avatar hover is driven by SwiftUI .onHover on the onscreen shell. than the window moves: the window
         // translates at full display-link rate so traversal stays smooth, but
         // drawn poses are quantized (steps at ~8–11 fps, ambient motion at
         // 12 fps via the rounded phase clock), and identical poses are not
@@ -437,10 +407,20 @@ final class WalkEngine: NSObject {
             return // pose still renders breathing via makePose
         }
 
+        // Chat open: hold still — stop walking/idling/sitting, but let
+        // transitional states (falling, landing, dragging, fuming, tuckingIn)
+        // finish naturally so he doesn't get stuck mid-air.
+        if model.pose.chatOpen {
+            switch state {
+            case .falling, .landing, .dragging, .fuming, .tuckingIn: break
+            default: return
+            }
+        }
+
         // Mad: plant and FUME (mad sheet, trembling) in fits, with brief angry
         // stomps between them — re-asserted every tick so he's actually mad the
         // whole time, even after being dropped back down or pulled around.
-        if currentMoodValue == .mad, !goingHome {
+        if currentMoodValue == .antsy, !goingHome {
             switch state {
             case .fuming, .dragging, .falling, .landing, .peeking, .tuckingIn: break
             case .walking where now < madStompUntil: break              // mid-stomp
@@ -520,7 +500,7 @@ final class WalkEngine: NSObject {
                 let p = min(1, (now - start) / Self.popDuration)
                 let visMinX = minX + (windowSize.width - Self.characterWidth) / 2
                 if p < Self.popPullFrac {
-                    x = visMinX - Self.peekInset            // stuck at the edge while he's yanked down
+                    x = visMinX
                 } else {
                     let ep = (p - Self.popPullFrac) / (1 - Self.popPullFrac)
                     let frame = min(11, Int((ep * 11).rounded()))
@@ -534,9 +514,60 @@ final class WalkEngine: NSObject {
             airHeight += vy * CGFloat(dt)
             x += tossVX * CGFloat(dt)                  // a fling carries sideways momentum
             tossVX *= CGFloat(exp(-2.5 * dt))
-            if airHeight <= 0 {
+
+            let charW = Self.characterWidth
+            let winH = windowSize.height
+            let groundY = lastVisible.minY
+
+            // Wall collision detection — in falling state, check all four edges.
+            // Hit priority: ground first, then side walls, then ceiling.
+            let hitGround  = airHeight <= 0
+            let hitLeft    = x <= lastVisible.minX - (windowSize.width - charW) / 2
+            let hitRight   = x + windowSize.width >= lastVisible.maxX + (windowSize.width - charW) / 2
+            let peakY      = groundY + airHeight + winH
+            let hitTop     = peakY >= lastVisible.maxY
+
+            if hitGround {
+                let speed = abs(tossVX) + abs(vy)
+                // Bounce if carrying enough momentum to reach a side or top wall
+                if !bounced && speed > 200 {
+                    airHeight = 0
+                    vy = abs(vy) * 0.45               // dampened upward bounce
+                    // Bias toss toward the nearest side wall if already heading that way
+                    let midX = (lastVisible.minX + lastVisible.maxX) / 2
+                    if abs(tossVX) < 150 && hitLeft {
+                        tossVX = 400                   // bounce right from left edge
+                    } else if abs(tossVX) < 150 && hitRight {
+                        tossVX = -400                  // bounce left from right edge
+                    } else if abs(tossVX) < 80 {
+                        tossVX = x < midX ? 400 : -400 // bounce toward the far side
+                    }
+                    state = .falling(vy: vy, bounced: true)
+                } else {
+                    airHeight = 0
+                    state = .landing(start: now)
+                }
+            } else if hitLeft {
                 airHeight = 0
-                state = .landing(start: now)           // hit the ground → straight into the squash, no bounce
+                peekEdge = .left
+                facing = 1
+                x = peekX(for: .left, in: lastVisible)
+                state = .peeking
+                peekRiseStart = now
+            } else if hitRight {
+                airHeight = 0
+                peekEdge = .right
+                facing = -1
+                x = peekX(for: .right, in: lastVisible)
+                state = .peeking
+                peekRiseStart = now
+            } else if hitTop {
+                airHeight = max(0, lastVisible.maxY - groundY - winH)
+                peekEdge = .top
+                facing = 1
+                x = peekX(for: .top, in: lastVisible)
+                state = .peeking
+                peekRiseStart = now
             } else {
                 state = .falling(vy: vy, bounced: bounced)
             }
@@ -564,7 +595,7 @@ final class WalkEngine: NSObject {
             }
 
         case .fuming:
-            if currentMoodValue != .mad { state = .walking; return }
+            if currentMoodValue != .antsy { state = .walking; return }
             // After a fit, stomp off angrily for a beat (the mad block re-fumes
             // once madStompUntil passes), turning around if he's at an edge.
             if now >= fumeUntil {
@@ -678,40 +709,184 @@ final class WalkEngine: NSObject {
 
     // MARK: - Bubbles
 
+    // MARK: - Inline chat
+
+    var chatExtraHeight: CGFloat { 0 }
+
+    func toggleChat() {
+        let newState = !model.pose.chatOpen
+        var pose = model.pose
+        pose.chatOpen = newState
+        if newState {
+            pose.chatDisplayMode = .compact
+        } else {
+            pose.chatMessages = []
+            pose.compactAssistantText = nil
+            pose.chatStatusText = nil
+            pose.chatTraceActive = false
+            pose.chatLoading = false
+            pose.chatDisplayMode = .compact
+            pose.uiBubblePhase = .visible
+        }
+        model.pose = pose
+        NotificationCenter.default.post(name: .pipChatResize, object: newState)
+    }
+
+    func expandChat() {
+        guard model.pose.chatOpen else { return }
+        var pose = model.pose
+        pose.chatDisplayMode = .full
+        pose.uiBubblePhase = .leaving
+        model.pose = pose
+        NotificationCenter.default.post(name: .pipChatMode, object: nil)
+    }
+
+    func collapseChat() {
+        guard model.pose.chatOpen else { return }
+        var pose = model.pose
+        pose.chatDisplayMode = .compact
+        if let last = pose.chatMessages.last(where: { !$0.isUser }) {
+            pose.compactAssistantText = last.text
+            pose.chatTraceActive = false
+            pose.uiBubblePhase = .visible
+        }
+        model.pose = pose
+        NotificationCenter.default.post(name: .pipChatMode, object: nil)
+    }
+
+    func dismissCompactAssistantBubble() {
+        var pose = model.pose
+        pose.compactAssistantText = nil
+        pose.uiBubblePhase = .leaving
+        model.pose = pose
+    }
+
+    // MARK: - Appearance
+
+    func cycleAppearance() {
+        let current = currentAppearanceName()
+        let next: String
+        if current == Appearance.rocky.rawValue {
+            next = Appearance.mascot.rawValue
+        } else {
+            next = Appearance.rocky.rawValue
+        }
+        UserDefaults.standard.set(next, forKey: appearanceKey)
+        // Push into the pose so it takes effect immediately
+        var pose = model.pose
+        pose.appearance = next
+        model.pose = pose
+    }
+
+    func stopChat() {
+        HermesChatClient.shared.cancel()
+        var pose = model.pose
+        pose.chatLoading = false
+        pose.chatStatusText = nil
+        pose.chatTraceActive = false
+        model.pose = pose
+    }
+
+    func sendChat(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !model.pose.chatLoading else { return }
+        let lower = trimmed.lowercased()
+        if lower == "/stop" || lower.hasPrefix("/stop ") {
+            stopChat()
+            return
+        }
+        if lower == "/help" || lower == "/commands" {
+            var pose = model.pose
+            pose.chatMessages.append(ChatBubbleMessage(text: trimmed, isUser: true))
+            let help = HermesSlashCatalog.shared.helpText()
+            pose.chatMessages.append(ChatBubbleMessage(text: help, isUser: false))
+            if pose.chatDisplayMode == .compact {
+                pose.compactAssistantText = help
+                pose.uiBubblePhase = .visible
+            }
+            model.pose = pose
+            NotificationCenter.default.post(name: .pipChatResize, object: false)
+            return
+        }
+        var pose = model.pose
+        pose.chatMessages.append(ChatBubbleMessage(text: trimmed, isUser: true))
+        pose.chatLoading = true
+        pose.chatStatusText = "Thinking…"
+        pose.compactAssistantText = "Thinking…"
+        pose.chatTraceActive = true
+        pose.uiBubblePhase = .visible
+        model.pose = pose
+        NotificationCenter.default.post(name: .pipChatResize, object: false)
+
+        HermesChatClient.shared.send(trimmed, onPartial: { [weak self] chunk in
+            guard let self, let chunk else { return }
+            var pose = self.model.pose
+            guard pose.chatOpen, pose.chatDisplayMode == .compact else { return }
+            pose.chatTraceActive = chunk.isTrace
+            pose.compactAssistantText = chunk.text
+            pose.chatStatusText = chunk.isTrace ? "Working…" : "Writing reply…"
+            pose.uiBubblePhase = .visible
+            self.model.pose = pose
+            NotificationCenter.default.post(name: .pipChatResize, object: false)
+        }) { [weak self] result in
+            guard let self else { return }
+            var pose = self.model.pose
+            pose.chatLoading = false
+            pose.chatStatusText = nil
+            pose.chatTraceActive = false
+            switch result {
+            case .success(let response):
+                let clean = response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? ""
+                    : response
+                if !clean.isEmpty {
+                    pose.chatMessages.append(ChatBubbleMessage(text: clean, isUser: false))
+                    if pose.chatDisplayMode == .compact {
+                        pose.compactAssistantText = clean
+                        pose.uiBubblePhase = .visible
+                    }
+                }
+            case .failure:
+                let err = "oops — hermes didn't answer"
+                pose.chatMessages.append(ChatBubbleMessage(text: err, isUser: false))
+                if pose.chatDisplayMode == .compact {
+                    pose.compactAssistantText = err
+                    pose.uiBubblePhase = .visible
+                }
+            }
+            self.model.pose = pose
+            NotificationCenter.default.post(name: .pipChatResize, object: false)
+        }
+    }
+
+    // MARK: - Bubbles (speech)
+
     func dismissBubble() {
         bubbleText = nil
         bubbleUntil = 0
+    }
+
+    func setAvatarHovered(_ hovered: Bool) {
+        hovering = hovered
     }
 
     private func updateBubble(now: TimeInterval) {
         if bubbleText != nil, now > bubbleUntil {
             bubbleText = nil
         }
-        // While peeking, the window (and so any bubble) sits off the right
-        // edge — stay quiet until he's pulled out to roam.
-        guard bubbleText == nil, now >= nextBubbleAt, !paused, !isPeeking else { return }
+        guard bubbleText == nil, now >= nextBubbleAt, !paused else { return }
         let line: String?
         switch currentMoodValue {
-        case .mad:
+        case .antsy:
             // Pointed, frequent, and quantified — name the projected waste and
             // the time left so the nudge is actionable.
-            let proj = store.projectedFinalPct().map { Int($0.rounded()) }
-            let left = store.snapshot.fiveHourResetsAt.map { UsageStore.countdown(to: $0, from: Date()) }
-            var options = [
-                "you're wasting this window. USE ME.",
-                "tick tock — quota's melting and you're idle",
-                "we are so behind. ship something!",
+            let options = [
+                "hermes is idle — give me something to do!",
+                "tick tock — I'm ready, what are we building?",
+                "we're just sitting here. ship something!",
             ]
-            if let p = proj { options.append("on track for only \(p)% — that's points left on the table") }
-            if let l = left { options.append("\(l) left and barely touched. let's GO") }
-            if let p = proj, let l = left { options.append("\(p)% projected, \(l) to fix it. move!") }
             line = options.randomElement()
-        case .antsy:
-            line = [
-                "you've got quota to burn — use me!",
-                "psst. this window resets soon and we've barely used it",
-                "idle hands! ship something",
-            ].randomElement()
+
         case .worried:
             line = "almost out for this window — maybe wrap up"
         case .happy:
@@ -721,10 +896,10 @@ final class WalkEngine: NSObject {
         }
         if let line {
             bubbleText = line
-            bubbleUntil = now + (currentMoodValue == .mad ? 6 : 8)
+            bubbleUntil = now + (currentMoodValue == .antsy ? 6 : 8)
         }
         // Mad nags often (it's the whole point); every other mood stays rare.
-        nextBubbleAt = now + (currentMoodValue == .mad
+        nextBubbleAt = now + (currentMoodValue == .antsy
             ? Double.random(in: 20...45)
             : Double.random(in: 600...1500))
     }
@@ -739,9 +914,28 @@ final class WalkEngine: NSObject {
     }
 
     private func updateHover(visible: NSRect) {
+        let charX: CGFloat
+        let charY: CGFloat
+        switch (state, peekEdge) {
+        case (.peeking, .left):
+            charX = x + (windowSize.width - Self.characterWidth) / 2
+            charY = visible.minY + Self.peekLift
+        case (.peeking, .right):
+            charX = x + (windowSize.width - Self.characterWidth) / 2
+            charY = visible.minY + Self.peekLift
+        case (.peeking, .top):
+            charX = x + (windowSize.width - Self.characterWidth) / 2
+            charY = visible.maxY - 165
+        case (.peeking, .bottom):
+            charX = x + (windowSize.width - Self.characterWidth) / 2
+            charY = visible.minY
+        default:
+            charX = x + (windowSize.width - Self.characterWidth) / 2
+            charY = visible.minY
+        }
         let charRect = NSRect(
-            x: x + (windowSize.width - Self.characterWidth) / 2,
-            y: visible.minY + (isPeeking ? Self.peekLift : 0),
+            x: charX,
+            y: charY,
             width: Self.characterWidth,
             height: 165)
         hovering = charRect.contains(NSEvent.mouseLocation)
@@ -755,7 +949,7 @@ final class WalkEngine: NSObject {
         // Quantized to 12 fps so unchanged poses can be skipped entirely.
         pose.phase = CGFloat((animClock * 12).rounded() / 12)
         pose.scaleX = facing
-        pose.weeklyPct = store.snapshot.weeklyUsedPct
+        pose.weeklyPct = store.stats.memoryPct
         pose.bubbleText = bubbleText
         pose.showBadge = hovering || showBadgePersistent
         if pose.showBadge {
@@ -769,9 +963,8 @@ final class WalkEngine: NSObject {
             pose.badgeSafeMinX = max(0, lastVisible.minX - x)
             pose.badgeSafeMaxX = min(windowSize.width, lastVisible.maxX - x)
         }
-        // At home he peeks low in the window, so drop the badge down next to his
-        // head instead of leaving it floating up at the window top.
-        if isPeeking { pose.badgeDrop = Self.peekBadgeDrop }
+        // Badge stays at top of window — never drops onto Pip's face
+        pose.badgeDrop = 0
 
         // Blink (suppressed while asleep — lids already shut).
         if blinkStart > 0 {
@@ -804,134 +997,33 @@ final class WalkEngine: NSObject {
             }
         }
 
-        if paused {
-            pose.bodySquash = CGFloat(breath) * 0.03
-            return pose
+        pose.chatBubbleBelowHead = false
+        if lastVisible.width > 10 {
+            let midY = physics.agentY + windowSize.height / 2
+            pose.chatBubbleBelowHead = midY > lastVisible.height * 0.55
         }
 
-        switch state {
-        case .peeking:
-            // Hand-drawn side-pop frames carry the whole peek-a-boo; the
-            // renderer draws just the frame at the left edge. Drop the ambient
-            // clock so the long tucked-away rest dedups to one static pose.
-            pose.peekFrame = peekFramePick()
-            pose.scaleX = 1
-            pose.phase = 0
-
-        case .walking:
-            applyWalkCycle()
-
-        case .turning(let start, let fromFacing):
-            let p = min(1, max(0, (now - start) / turnDuration))
-            // Hand-drawn pivot frames carry the rotation; quantize progress to
-            // frame boundaries so identical poses dedup. A whisper of lift
-            // keeps the pivot feeling like a weight shift.
-            pose.scaleX = fromFacing
-            pose.turnFromRight = fromFacing > 0
-            pose.turnPhase = CGFloat((p * 6).rounded(.down) / 6)
-            pose.bodySquash = CGFloat(sin(.pi * p)) * 0.04
-            pose.bodyLift = CGFloat(sin(.pi * p)) * 1.5
-
-        case .idling(let kind, let start, let until):
-            pose.bodySquash = CGFloat(breath) * 0.035
-            pose.headBob = CGFloat(breath) * -1.5
-            switch kind {
-            case .breathe:
-                break
-            case .lookAround:
-                pose.lookX = CGFloat(sin((now - start) * 1.4)) * 0.9
-            case .yawn:
-                let span = max(0.1, until - start)
-                pose.yawn = CGFloat(sin(.pi * min(1, (now - start) / span)))
+        pose.hiddenEdge = physics.hiddenEdge
+        pose.isDraggingAgent = physics.isDragging
+        pose.peekEdge = physics.isDockedRight ? .right : .left
+        if let edge = physics.hiddenEdge {
+            switch edge {
+            case .left: pose.peekEdge = .left
+            case .right: pose.peekEdge = .right
+            case .top: pose.peekEdge = .top
+            case .bottom: pose.peekEdge = .bottom
             }
-            if currentMoodValue == .antsy {
-                // Impatient foot tapping, ~3 taps/sec.
-                pose.footTap = max(0, CGFloat(sin(animClock * 2 * .pi * 3))) * 5
-            }
-
-        case .sitting:
-            pose.sitting = true
-            pose.bodySquash = 0.09 + CGFloat(breath) * 0.025
-            if currentMoodValue == .sleepy {
-                pose.blink = 1
-            }
-
-        case .dragging(let start):
-            if poppingOut {
-                let p = min(1, (now - start) / Self.popDuration)
-                if p < Self.popPullFrac {
-                    // Stuck in the hole, yanked down to the corner: hold the peek
-                    // head and stretch tall (anchored at the feet) as he's pulled.
-                    let pp = p / Self.popPullFrac
-                    pose.popFrame = 0
-                    pose.stretchY = Self.popStretchMax * CGFloat(sin(.pi * pp))
-                } else {
-                    // Touched down at the corner — a quick squash, then emerge.
-                    let ep = (p - Self.popPullFrac) / (1 - Self.popPullFrac)
-                    pose.popFrame = min(11, Int((ep * 11).rounded()))
-                    pose.stretchY = -Self.popSquashMax * CGFloat(max(0, 1 - ep / 0.22))
-                }
-            } else if dragFromPeek {
-                // Already emerged via the pop-out — skip the off-the-ground
-                // snatch and go straight to the carried frames.
-                let pick = airFramePick(now: now, heldSince: start)
-                pose.airSheet = pick.sheet
-                pose.airFrame = pick.frame
-            } else {
-                // Snatch reaction (pickup frames 0-3), a startled beat, then the
-                // in-air set takes over, reacting to how the cursor moves.
-                let t = now - start
-                let grabEnd = 4 * Self.grabFrameDur
-                if t < grabEnd {
-                    pose.pickupFrame = min(3, Int(t / Self.grabFrameDur))
-                } else if t < grabEnd + Self.alertDur {
-                    pose.airFrame = 1
-                } else {
-                    let pick = airFramePick(now: now, heldSince: start + grabEnd)
-                    pose.airSheet = pick.sheet
-                    pose.airFrame = pick.frame
-                }
-            }
-
-        case .falling(let vy, _):
-            // Drop frames driven by downward speed: calm at the apex (0), more
-            // flail + speed-lines as he accelerates toward terminal (→7).
-            let speed = max(0, -vy)
-            pose.fallFrame = min(7, Int((speed / Self.terminalFall * 7).rounded()))
-
-        case .fuming:
-            // Anger tier picks the row, looping its 4 frames as a seething bob.
-            // Row 0 of the sheet is near-neutral (almost smiling), so "mad"
-            // uses row 1 (cross) and row 2 (red-faced furious — most of the time).
-            let rage = max(0, min(1, (currentAnger - 0.40) / 0.45))   // 0…1 across the mad range
-            let tier = currentAnger < 0.55 ? 1 : 2
-            let frameInRow = Int(animClock / 0.12) % 4                // quick agitated cycle
-            pose.madFrame = tier * 4 + frameInRow
-            pose.scaleX = facing                       // sprite is front-facing; keep sign stable
-            // The madder he is, the harder he trembles and jiggles at you.
-            pose.bodyLift = CGFloat(max(0, sin(animClock * 2 * .pi * 5.5))) * CGFloat(2.2 + 4 * rage)
-            pose.footTap = CGFloat(0.9 + rage)         // drives the renderer's angry jiggle + anger mark
-
-        case .landing(let start):
-            // Touchdown: squash down (8 → 9 → 10 max) then spring back up to a
-            // stand (11) before walking off — so the drop resolves smoothly.
-            let p = min(1, (now - start) / Self.landDuration)
-            let frame: Int
-            if p < 0.16 { frame = 8 }
-            else if p < 0.34 { frame = 9 }
-            else if p < 0.60 { frame = 10 }
-            else { frame = 11 }
-            pose.fallFrame = frame
-
-        case .tuckingIn(let start):
-            // Reverse side-pop: full body (11) → tucked head-peek (0), backing
-            // into the hole. Same eased curve the window slide uses.
-            let p = min(1, (now - start) / Self.tuckDuration)
-            let eased = p * p * (3 - 2 * p)
-            pose.popFrame = max(0, 11 - Int((eased * 11).rounded()))
-            pose.phase = 0
         }
+        pose.chatOpen = model.pose.chatOpen
+        pose.chatDisplayMode = model.pose.chatDisplayMode
+        pose.compactAssistantText = model.pose.compactAssistantText
+        pose.chatTraceActive = model.pose.chatTraceActive
+        pose.uiBubblePhase = model.pose.uiBubblePhase
+        pose.chatMessages = model.pose.chatMessages
+        pose.chatLoading = model.pose.chatLoading
+        pose.chatStatusText = model.pose.chatStatusText
 
         return pose
     }
+
 }

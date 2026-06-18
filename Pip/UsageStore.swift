@@ -2,53 +2,29 @@ import Foundation
 import Observation
 
 private func clamp(_ x: Double, _ lo: Double, _ hi: Double) -> Double { min(hi, max(lo, x)) }
-private func smoothstep(_ x: Double, _ a: Double, _ b: Double) -> Double {
-    guard b > a else { return x < a ? 0 : 1 }
-    let t = clamp((x - a) / (b - a), 0, 1)
-    return t * t * (3 - 2 * t)
-}
 
-/// One usage meter for the hover card (5-hour window or 7-day cap).
+/// One meter for the hover card.
 struct UsageStat: Equatable {
-    var label: String     // "5h", "7d"
-    var pct: Double       // 0–100
-    var resets: String    // "47m", "6d 11h"
+    var label: String
+    var pct: Double
+    var detail: String
 }
 
-/// Canonical, source-agnostic usage model. All percentages are 0–100.
-struct UsageSnapshot {
-    var fiveHourUsedPct: Double?
-    var fiveHourResetsAt: Date?
-    var weeklyUsedPct: Double?
-    var weeklyResetsAt: Date?
-    var lastUpdated: Date = .distantPast
-}
-
-/// Merges samples from the OAuth poller and the statusline bridge, always
-/// preferring the freshest one. A failed poll never blanks anything — the last
-/// good snapshot is kept until something newer arrives.
-///
-/// All mutation happens on the main queue (both sources dispatch to main).
+/// Canonical Hermes state, source-agnostic.
 @Observable
 final class UsageStore {
-    private(set) var snapshot = UsageSnapshot()
+    private(set) var stats = HermesStats()
     private(set) var tokenAvailable = false
     private(set) var lastSource = "none"
     private(set) var lastError: String?
 
-    /// Data older than this counts as unknown -> SLEEPY.
     static let staleAfter: TimeInterval = 3 * 3600
 
-    func ingest(_ incoming: UsageSnapshot, source: String) {
-        guard incoming.lastUpdated >= snapshot.lastUpdated else { return }
-        var merged = snapshot
-        if let v = incoming.fiveHourUsedPct { merged.fiveHourUsedPct = v }
-        if let v = incoming.fiveHourResetsAt { merged.fiveHourResetsAt = v }
-        if let v = incoming.weeklyUsedPct { merged.weeklyUsedPct = v }
-        if let v = incoming.weeklyResetsAt { merged.weeklyResetsAt = v }
-        merged.lastUpdated = incoming.lastUpdated
-        snapshot = merged
-        lastSource = source
+    func ingestHermes(_ incoming: HermesStats) {
+        guard incoming.lastUpdated >= stats.lastUpdated else { return }
+        stats = incoming
+        tokenAvailable = incoming.hermesRunning || incoming.gatewayRunning
+        lastSource = "hermes"
         lastError = nil
     }
 
@@ -56,115 +32,89 @@ final class UsageStore {
     func noteError(_ message: String) { lastError = message }
 
     var hasFreshData: Bool {
-        snapshot.fiveHourUsedPct != nil
-            && Date().timeIntervalSince(snapshot.lastUpdated) < Self.staleAfter
+        tokenAvailable
+            && Date().timeIntervalSince(stats.lastUpdated) < Self.staleAfter
     }
 
-    // MARK: - Mood (pace delta, not a countdown)
+    // MARK: - Hermes Mood
 
-    /// How far ahead of (+) or behind (−) the "spend it evenly" line we are.
-    /// nil when the 5-hour window state is unknown.
-    func paceDelta(now: Date = Date()) -> Double? {
-        guard hasFreshData,
-              let used = snapshot.fiveHourUsedPct,
-              let resetsAt = snapshot.fiveHourResetsAt else { return nil }
-        let windowLen: TimeInterval = 5 * 3600
-        let start = resetsAt.timeIntervalSince1970 - windowLen
-        let elapsedFrac = min(1, max(0, (now.timeIntervalSince1970 - start) / windowLen))
-        return used / 100 - elapsedFrac
-    }
-
-    /// Fraction [0,1] of the current 5-hour window that has elapsed.
-    private func elapsedFrac(now: Date) -> Double? {
-        guard let resetsAt = snapshot.fiveHourResetsAt else { return nil }
-        let windowLen: TimeInterval = 5 * 3600
-        let start = resetsAt.timeIntervalSince1970 - windowLen
-        return min(1, max(0, (now.timeIntervalSince1970 - start) / windowLen))
-    }
-
-    /// If usage keeps the current pace, what % of the 5-hour budget will be
-    /// spent by the time it resets? (Linear extrapolation; nil if unknown or
-    /// too early in the window to be meaningful.)
-    func projectedFinalPct(now: Date = Date()) -> Double? {
-        guard hasFreshData, let used = snapshot.fiveHourUsedPct,
-              let e = elapsedFrac(now: now), e > 0.02 else { return nil }
-        return min(200, used / e)
-    }
-
-    /// How annoyed Pip should be that the window will go under-used, 0…1.
-    /// Zero until we're far enough into the window to judge; ramps up the
-    /// further the projected finish falls below "basically used it all".
-    /// Returns 0 once usage is healthy or already near the cap (that's worry,
-    /// not anger).
-    func angerLevel(now: Date = Date()) -> Double {
-        guard let used = snapshot.fiveHourUsedPct, used < 90,
-              let e = elapsedFrac(now: now),
-              let projected = projectedFinalPct(now: now) else { return 0 }
-        // Confidence: a quiet first half-hour is normal, so don't judge before
-        // ~30% in; trust the projection fully past ~55%.
-        let confidence = smoothstep(e, 0.30, 0.55)
-        // Waste: projected 90%+ is fine (0 anger); 30% projected is maximal.
-        let waste = clamp((90 - projected) / 60, 0, 1)
-        return confidence * waste
+    /// Activity score 0–100 — balanced blend of session count and tool call volume.
+    /// Sessions are capped at 5 pts each (max 10 sessions → 50 pts). Tool calls
+    /// contribute 1 pt per 20 calls (max 1000 calls → 50 pts). This keeps the meter
+    /// meaningful: casual use lands at 10–30, heavy at 50–80, and only truly extreme
+    /// loads hit 90+.
+    func activityScore() -> Double {
+        let s = min(10, Double(stats.activeSessions))
+        let t = min(1000, Double(stats.toolCallsRecent))
+        return min(100, s * 5 + t / 20)
     }
 
     func mood(now: Date = Date()) -> Mood {
-        guard hasFreshData, let used = snapshot.fiveHourUsedPct,
-              let delta = paceDelta(now: now) else { return .sleepy }
-        if used >= 90 { return .worried }
-        if angerLevel(now: now) >= 0.40 { return .mad }   // confidently wasting the window
-        if delta <= -0.25 { return .antsy }               // mildly behind
-        if delta >= 0.10 { return .focused }
-        return .happy
+        guard hasFreshData else { return .sleepy }
+        if !stats.hermesRunning && !stats.gatewayRunning { return .sleepy }
+
+        let score = activityScore()
+        let memPct = max(stats.memoryPct, stats.userProfilePct)
+
+        // Memory critical: worried overrides everything
+        if memPct >= 90 { return .worried }
+
+        // Very busy
+        if score >= 60 { return .focused }
+
+        // Memory getting tight
+        if memPct >= 80 { return .antsy }
+
+        // Moderately active
+        if score >= 20 { return .happy }
+
+        // Kicking but not much happening
+        if score > 0 || stats.lastSessionSecondsAgo < 600 { return .happy }
+
+        // Idle — Hermes is running but nothing recent
+        return .antsy
     }
 
     // MARK: - Display strings
 
     func detailLines(now: Date = Date()) -> [String] {
         var lines: [String] = []
-        if let p = snapshot.fiveHourUsedPct {
-            var s = "5h \(Int(p.rounded()))%"
-            if let r = snapshot.fiveHourResetsAt { s += " · resets in \(Self.countdown(to: r, from: now))" }
-            lines.append(s)
+        if stats.gatewayRunning {
+            lines.append("⚡ gateway up")
+        } else if stats.hermesRunning {
+            lines.append("🐚 hermes running")
+        } else {
+            lines.append("💤 hermes is sleeping")
         }
-        if let p = snapshot.weeklyUsedPct {
-            var s = "7d \(Int(p.rounded()))%"
-            if let r = snapshot.weeklyResetsAt { s += " · resets in \(Self.countdown(to: r, from: now))" }
-            lines.append(s)
-        }
-        if lines.isEmpty {
-            lines.append(tokenAvailable ? "no usage data yet" : "log into claude code to wake me up")
+        lines.append("📊 \(stats.activeSessions) sessions · \(stats.toolCallsRecent) tool calls (1h)")
+        lines.append("🧠 skills: \(stats.skillsCount) · memory: \(Int(stats.memoryPct))%")
+        if stats.cronJobsActive > 0 {
+            lines.append("⏰ \(stats.cronJobsActive) cron jobs")
         }
         return lines
     }
 
-    /// Structured meters for the hover card.
     func usageStats(now: Date = Date()) -> [UsageStat] {
         var out: [UsageStat] = []
-        if let p = snapshot.fiveHourUsedPct {
-            out.append(UsageStat(label: "5h", pct: p,
-                resets: snapshot.fiveHourResetsAt.map { Self.countdown(to: $0, from: now) } ?? "—"))
-        }
-        if let p = snapshot.weeklyUsedPct {
-            out.append(UsageStat(label: "7d", pct: p,
-                resets: snapshot.weeklyResetsAt.map { Self.countdown(to: $0, from: now) } ?? "—"))
-        }
+        out.append(UsageStat(label: "activity", pct: activityScore(),
+            detail: "\(stats.activeSessions) sessions · \(stats.toolCallsRecent) calls"))
+        out.append(UsageStat(label: "memory", pct: max(stats.memoryPct, stats.userProfilePct),
+            detail: "skills: \(stats.skillsCount) · profile: \(Int(stats.userProfilePct))%"))
         return out
     }
 
-    /// Fallback line for the hover card when there are no meters yet.
     var badgeNote: String? {
-        snapshot.fiveHourUsedPct != nil ? nil
-            : (tokenAvailable ? "no usage data yet" : "log into Claude Code to wake me up")
+        guard hasFreshData else {
+            return "hermes is sleeping — start the gateway to wake me up"
+        }
+        return nil
     }
 
     func statusLine(now: Date = Date()) -> String {
         var s = "mood: \(mood(now: now).rawValue)"
-        if let delta = paceDelta(now: now) {
-            s += String(format: " · pace %+.2f", delta)
-        }
-        if snapshot.lastUpdated > .distantPast {
-            s += " · updated \(Self.ago(snapshot.lastUpdated, from: now)) via \(lastSource)"
+        s += " · activity: \(Int(activityScore()))%"
+        if stats.lastUpdated > .distantPast {
+            s += " · updated \(Self.ago(stats.lastUpdated, from: now))"
         }
         return s
     }

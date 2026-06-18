@@ -1,6 +1,14 @@
 # macOS
 .DS_Store
 
+# Secrets / local credentials
+.env
+.env.*
+*.pem
+*.key
+.credentials.json
+**/secrets/
+
 # Build artifacts
 build/
 fresh_build/
@@ -12,6 +20,14 @@ DerivedData/
 xcuserdata/
 Pip.xcodeproj/project.xcworkspace/xcuserdata/
 Pip.xcodeproj/xcuserdata/
+
+# Python
+__pycache__/
+*.pyc
+
+# Asset pipeline scratch
+Pip/Assets/_archive/
+build/rocky-fix/
 
 # Release packaging scratch
 *.zip

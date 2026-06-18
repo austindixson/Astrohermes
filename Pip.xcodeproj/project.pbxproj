@@ -13,8 +13,8 @@
 		AB20000000000000000000_04 /* JSONProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_04 /* JSONProbe.swift */; };
 		AB20000000000000000000_05 /* UsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_05 /* UsageStore.swift */; };
 		AB20000000000000000000_06 /* CredentialsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_06 /* CredentialsProvider.swift */; };
-		AB20000000000000000000_07 /* OAuthUsagePoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_07 /* OAuthUsagePoller.swift */; };
-		AB20000000000000000000_08 /* StatuslineBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_08 /* StatuslineBridge.swift */; };
+		AB20000000000000000000_07 /* HermesStatsPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_07 /* HermesStatsPoller.swift */; };
+		AB20000000000000000000_08 /* HermesStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_08 /* HermesStats.swift */; };
 		AB20000000000000000000_09 /* WalkEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_09 /* WalkEngine.swift */; };
 		AB20000000000000000000_10 /* MascotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_10 /* MascotView.swift */; };
 		AB20000000000000000000_11 /* MascotController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_11 /* MascotController.swift */; };
@@ -140,8 +140,137 @@
 		AB20000000000000000000_105 /* mad-9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_105 /* mad-9.png */; };
 		AB20000000000000000000_106 /* mad-10.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_106 /* mad-10.png */; };
 		AB20000000000000000000_107 /* mad-11.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_107 /* mad-11.png */; };
+		AB20000000000000000000_144 /* rocky-air-0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_144 /* rocky-air-0.png */; };
+		AB20000000000000000000_145 /* rocky-air-1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_145 /* rocky-air-1.png */; };
+		AB20000000000000000000_146 /* rocky-air-10.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_146 /* rocky-air-10.png */; };
+		AB20000000000000000000_147 /* rocky-air-11.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_147 /* rocky-air-11.png */; };
+		AB20000000000000000000_148 /* rocky-air-2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_148 /* rocky-air-2.png */; };
+		AB20000000000000000000_149 /* rocky-air-3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_149 /* rocky-air-3.png */; };
+		AB20000000000000000000_150 /* rocky-air-4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_150 /* rocky-air-4.png */; };
+		AB20000000000000000000_151 /* rocky-air-5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_151 /* rocky-air-5.png */; };
+		AB20000000000000000000_152 /* rocky-air-6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_152 /* rocky-air-6.png */; };
+		AB20000000000000000000_153 /* rocky-air-7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_153 /* rocky-air-7.png */; };
+		AB20000000000000000000_154 /* rocky-air-8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_154 /* rocky-air-8.png */; };
+		AB20000000000000000000_155 /* rocky-air-9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_155 /* rocky-air-9.png */; };
+		AB20000000000000000000_156 /* rocky-air-l-0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_156 /* rocky-air-l-0.png */; };
+		AB20000000000000000000_157 /* rocky-air-l-1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_157 /* rocky-air-l-1.png */; };
+		AB20000000000000000000_158 /* rocky-air-l-10.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_158 /* rocky-air-l-10.png */; };
+		AB20000000000000000000_159 /* rocky-air-l-11.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_159 /* rocky-air-l-11.png */; };
+		AB20000000000000000000_160 /* rocky-air-l-2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_160 /* rocky-air-l-2.png */; };
+		AB20000000000000000000_161 /* rocky-air-l-3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_161 /* rocky-air-l-3.png */; };
+		AB20000000000000000000_162 /* rocky-air-l-4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_162 /* rocky-air-l-4.png */; };
+		AB20000000000000000000_163 /* rocky-air-l-5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_163 /* rocky-air-l-5.png */; };
+		AB20000000000000000000_164 /* rocky-air-l-6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_164 /* rocky-air-l-6.png */; };
+		AB20000000000000000000_165 /* rocky-air-l-7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_165 /* rocky-air-l-7.png */; };
+		AB20000000000000000000_166 /* rocky-air-l-8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_166 /* rocky-air-l-8.png */; };
+		AB20000000000000000000_167 /* rocky-air-l-9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_167 /* rocky-air-l-9.png */; };
+		AB20000000000000000000_168 /* rocky-air-r-0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_168 /* rocky-air-r-0.png */; };
+		AB20000000000000000000_169 /* rocky-air-r-1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_169 /* rocky-air-r-1.png */; };
+		AB20000000000000000000_170 /* rocky-air-r-10.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_170 /* rocky-air-r-10.png */; };
+		AB20000000000000000000_171 /* rocky-air-r-11.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_171 /* rocky-air-r-11.png */; };
+		AB20000000000000000000_172 /* rocky-air-r-2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_172 /* rocky-air-r-2.png */; };
+		AB20000000000000000000_173 /* rocky-air-r-3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_173 /* rocky-air-r-3.png */; };
+		AB20000000000000000000_174 /* rocky-air-r-4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_174 /* rocky-air-r-4.png */; };
+		AB20000000000000000000_175 /* rocky-air-r-5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_175 /* rocky-air-r-5.png */; };
+		AB20000000000000000000_176 /* rocky-air-r-6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_176 /* rocky-air-r-6.png */; };
+		AB20000000000000000000_177 /* rocky-air-r-7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_177 /* rocky-air-r-7.png */; };
+		AB20000000000000000000_178 /* rocky-air-r-8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_178 /* rocky-air-r-8.png */; };
+		AB20000000000000000000_179 /* rocky-air-r-9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_179 /* rocky-air-r-9.png */; };
+		AB20000000000000000000_180 /* rocky-fall-0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_180 /* rocky-fall-0.png */; };
+		AB20000000000000000000_181 /* rocky-fall-1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_181 /* rocky-fall-1.png */; };
+		AB20000000000000000000_182 /* rocky-fall-10.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_182 /* rocky-fall-10.png */; };
+		AB20000000000000000000_183 /* rocky-fall-11.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_183 /* rocky-fall-11.png */; };
+		AB20000000000000000000_184 /* rocky-fall-2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_184 /* rocky-fall-2.png */; };
+		AB20000000000000000000_185 /* rocky-fall-3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_185 /* rocky-fall-3.png */; };
+		AB20000000000000000000_186 /* rocky-fall-4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_186 /* rocky-fall-4.png */; };
+		AB20000000000000000000_187 /* rocky-fall-5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_187 /* rocky-fall-5.png */; };
+		AB20000000000000000000_188 /* rocky-fall-6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_188 /* rocky-fall-6.png */; };
+		AB20000000000000000000_189 /* rocky-fall-7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_189 /* rocky-fall-7.png */; };
+		AB20000000000000000000_190 /* rocky-fall-8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_190 /* rocky-fall-8.png */; };
+		AB20000000000000000000_191 /* rocky-fall-9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_191 /* rocky-fall-9.png */; };
+		AB20000000000000000000_192 /* rocky-idle-left.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_192 /* rocky-idle-left.png */; };
+		AB20000000000000000000_193 /* rocky-idle-right.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_193 /* rocky-idle-right.png */; };
+		AB20000000000000000000_194 /* rocky-mad-0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_194 /* rocky-mad-0.png */; };
+		AB20000000000000000000_195 /* rocky-mad-1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_195 /* rocky-mad-1.png */; };
+		AB20000000000000000000_196 /* rocky-mad-10.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_196 /* rocky-mad-10.png */; };
+		AB20000000000000000000_197 /* rocky-mad-11.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_197 /* rocky-mad-11.png */; };
+		AB20000000000000000000_198 /* rocky-mad-2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_198 /* rocky-mad-2.png */; };
+		AB20000000000000000000_199 /* rocky-mad-3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_199 /* rocky-mad-3.png */; };
+		AB20000000000000000000_200 /* rocky-mad-4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_200 /* rocky-mad-4.png */; };
+		AB20000000000000000000_201 /* rocky-mad-5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_201 /* rocky-mad-5.png */; };
+		AB20000000000000000000_202 /* rocky-mad-6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_202 /* rocky-mad-6.png */; };
+		AB20000000000000000000_203 /* rocky-mad-7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_203 /* rocky-mad-7.png */; };
+		AB20000000000000000000_204 /* rocky-mad-8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_204 /* rocky-mad-8.png */; };
+		AB20000000000000000000_205 /* rocky-mad-9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_205 /* rocky-mad-9.png */; };
+		AB20000000000000000000_206 /* rocky-pickup-0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_206 /* rocky-pickup-0.png */; };
+		AB20000000000000000000_207 /* rocky-pickup-1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_207 /* rocky-pickup-1.png */; };
+		AB20000000000000000000_208 /* rocky-pickup-10.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_208 /* rocky-pickup-10.png */; };
+		AB20000000000000000000_209 /* rocky-pickup-11.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_209 /* rocky-pickup-11.png */; };
+		AB20000000000000000000_210 /* rocky-pickup-2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_210 /* rocky-pickup-2.png */; };
+		AB20000000000000000000_211 /* rocky-pickup-3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_211 /* rocky-pickup-3.png */; };
+		AB20000000000000000000_212 /* rocky-pickup-4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_212 /* rocky-pickup-4.png */; };
+		AB20000000000000000000_213 /* rocky-pickup-5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_213 /* rocky-pickup-5.png */; };
+		AB20000000000000000000_214 /* rocky-pickup-6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_214 /* rocky-pickup-6.png */; };
+		AB20000000000000000000_215 /* rocky-pickup-7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_215 /* rocky-pickup-7.png */; };
+		AB20000000000000000000_216 /* rocky-pickup-8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_216 /* rocky-pickup-8.png */; };
+		AB20000000000000000000_217 /* rocky-pickup-9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_217 /* rocky-pickup-9.png */; };
+		AB20000000000000000000_218 /* rocky-pop-0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_218 /* rocky-pop-0.png */; };
+		AB20000000000000000000_219 /* rocky-pop-1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_219 /* rocky-pop-1.png */; };
+		AB20000000000000000000_220 /* rocky-pop-10.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_220 /* rocky-pop-10.png */; };
+		AB20000000000000000000_221 /* rocky-pop-11.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_221 /* rocky-pop-11.png */; };
+		AB20000000000000000000_222 /* rocky-pop-2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_222 /* rocky-pop-2.png */; };
+		AB20000000000000000000_223 /* rocky-pop-3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_223 /* rocky-pop-3.png */; };
+		AB20000000000000000000_224 /* rocky-pop-4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_224 /* rocky-pop-4.png */; };
+		AB20000000000000000000_225 /* rocky-pop-5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_225 /* rocky-pop-5.png */; };
+		AB20000000000000000000_226 /* rocky-pop-6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_226 /* rocky-pop-6.png */; };
+		AB20000000000000000000_227 /* rocky-pop-7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_227 /* rocky-pop-7.png */; };
+		AB20000000000000000000_228 /* rocky-pop-8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_228 /* rocky-pop-8.png */; };
+		AB20000000000000000000_229 /* rocky-pop-9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_229 /* rocky-pop-9.png */; };
+		AB20000000000000000000_230 /* rocky-stable-0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_230 /* rocky-stable-0.png */; };
+		AB20000000000000000000_231 /* rocky-stable-1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_231 /* rocky-stable-1.png */; };
+		AB20000000000000000000_232 /* rocky-stable-2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_232 /* rocky-stable-2.png */; };
+		AB20000000000000000000_233 /* rocky-stable-3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_233 /* rocky-stable-3.png */; };
+		AB20000000000000000000_234 /* rocky-stable-4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_234 /* rocky-stable-4.png */; };
+		AB20000000000000000000_235 /* rocky-stable-5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_235 /* rocky-stable-5.png */; };
+		AB20000000000000000000_236 /* rocky-stable-6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_236 /* rocky-stable-6.png */; };
+		AB20000000000000000000_237 /* rocky-stable-7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_237 /* rocky-stable-7.png */; };
+		AB20000000000000000000_238 /* rocky-stable-8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_238 /* rocky-stable-8.png */; };
+		AB20000000000000000000_239 /* rocky-stable-9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_239 /* rocky-stable-9.png */; };
+		AB20000000000000000000_240 /* rocky-turn-0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_240 /* rocky-turn-0.png */; };
+		AB20000000000000000000_241 /* rocky-turn-1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_241 /* rocky-turn-1.png */; };
+		AB20000000000000000000_242 /* rocky-turn-2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_242 /* rocky-turn-2.png */; };
+		AB20000000000000000000_243 /* rocky-turn-3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_243 /* rocky-turn-3.png */; };
+		AB20000000000000000000_244 /* rocky-turn-4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_244 /* rocky-turn-4.png */; };
+		AB20000000000000000000_245 /* rocky-turn-5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_245 /* rocky-turn-5.png */; };
+		AB20000000000000000000_246 /* rocky-walk-left-f0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_246 /* rocky-walk-left-f0.png */; };
+		AB20000000000000000000_247 /* rocky-walk-left-f1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_247 /* rocky-walk-left-f1.png */; };
+		AB20000000000000000000_248 /* rocky-walk-left-f2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_248 /* rocky-walk-left-f2.png */; };
+		AB20000000000000000000_249 /* rocky-walk-left-f3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_249 /* rocky-walk-left-f3.png */; };
+		AB20000000000000000000_250 /* rocky-walk-left-f4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_250 /* rocky-walk-left-f4.png */; };
+		AB20000000000000000000_251 /* rocky-walk-left-f5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_251 /* rocky-walk-left-f5.png */; };
+		AB20000000000000000000_252 /* rocky-walk-left-f6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_252 /* rocky-walk-left-f6.png */; };
+		AB20000000000000000000_253 /* rocky-walk-left-f7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_253 /* rocky-walk-left-f7.png */; };
+		AB20000000000000000000_254 /* rocky-walk-left-f8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_254 /* rocky-walk-left-f8.png */; };
+		AB20000000000000000000_255 /* rocky-walk-left-f9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_255 /* rocky-walk-left-f9.png */; };
+		AB20000000000000000000_256 /* rocky-walk-right-f0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_256 /* rocky-walk-right-f0.png */; };
+		AB20000000000000000000_257 /* rocky-walk-right-f1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_257 /* rocky-walk-right-f1.png */; };
+		AB20000000000000000000_258 /* rocky-walk-right-f2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_258 /* rocky-walk-right-f2.png */; };
+		AB20000000000000000000_259 /* rocky-walk-right-f3.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_259 /* rocky-walk-right-f3.png */; };
+		AB20000000000000000000_260 /* rocky-walk-right-f4.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_260 /* rocky-walk-right-f4.png */; };
+		AB20000000000000000000_261 /* rocky-walk-right-f5.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_261 /* rocky-walk-right-f5.png */; };
+		AB20000000000000000000_262 /* rocky-walk-right-f6.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_262 /* rocky-walk-right-f6.png */; };
+		AB20000000000000000000_263 /* rocky-walk-right-f7.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_263 /* rocky-walk-right-f7.png */; };
+		AB20000000000000000000_264 /* rocky-walk-right-f8.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_264 /* rocky-walk-right-f8.png */; };
+		AB20000000000000000000_265 /* rocky-walk-right-f9.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_265 /* rocky-walk-right-f9.png */; };
 /* End PBXBuildFile section */
 
+		AB20000000000000000000_143 /* HermesChatClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_143 /* HermesChatClient.swift */; };
+		AB20000000000000000000_268 /* SpaceAgentChatUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_268 /* SpaceAgentChatUI.swift */; };
+		AB20000000000000000000_269 /* SpaceAgentShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_269 /* SpaceAgentShellView.swift */; };
+		AB20000000000000000000_273 /* OnscreenAgentPhysics.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_273 /* OnscreenAgentPhysics.swift */; };
+		AB20000000000000000000_276 /* HermesSlashCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_276 /* HermesSlashCatalog.swift */; };
+		AB20000000000000000000_274 /* astronaut_no_bg.webp in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_274 /* astronaut_no_bg.webp */; };
+		AB20000000000000000000_275 /* helmet_no_bg_256.webp in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_275 /* helmet_no_bg_256.webp */; };
 /* Begin PBXFileReference section */
 		AB10000000000000000000_01 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_02 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -149,8 +278,8 @@
 		AB10000000000000000000_04 /* JSONProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONProbe.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_05 /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_06 /* CredentialsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialsProvider.swift; sourceTree = "<group>"; };
-		AB10000000000000000000_07 /* OAuthUsagePoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthUsagePoller.swift; sourceTree = "<group>"; };
-		AB10000000000000000000_08 /* StatuslineBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatuslineBridge.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_07 /* HermesStatsPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesStatsPoller.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_08 /* HermesStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesStats.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_09 /* WalkEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkEngine.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_10 /* MascotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MascotView.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_11 /* MascotController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MascotController.swift; sourceTree = "<group>"; };
@@ -277,6 +406,135 @@
 		AB10000000000000000000_105 /* mad-9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mad-9.png"; sourceTree = "<group>"; };
 		AB10000000000000000000_106 /* mad-10.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mad-10.png"; sourceTree = "<group>"; };
 		AB10000000000000000000_107 /* mad-11.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mad-11.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_143 /* HermesChatClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesChatClient.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_268 /* SpaceAgentChatUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceAgentChatUI.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_269 /* SpaceAgentShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceAgentShellView.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_273 /* OnscreenAgentPhysics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnscreenAgentPhysics.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_276 /* HermesSlashCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesSlashCatalog.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_274 /* astronaut_no_bg.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = "astronaut_no_bg.webp"; sourceTree = "<group>"; };
+		AB10000000000000000000_275 /* helmet_no_bg_256.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = "helmet_no_bg_256.webp"; sourceTree = "<group>"; };
+		AB10000000000000000000_144 /* rocky-air-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_145 /* rocky-air-1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_146 /* rocky-air-10.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-10.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_147 /* rocky-air-11.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-11.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_148 /* rocky-air-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_149 /* rocky-air-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_150 /* rocky-air-4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_151 /* rocky-air-5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_152 /* rocky-air-6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_153 /* rocky-air-7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_154 /* rocky-air-8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_155 /* rocky-air-9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-9.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_156 /* rocky-air-l-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_157 /* rocky-air-l-1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_158 /* rocky-air-l-10.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-10.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_159 /* rocky-air-l-11.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-11.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_160 /* rocky-air-l-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_161 /* rocky-air-l-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_162 /* rocky-air-l-4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_163 /* rocky-air-l-5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_164 /* rocky-air-l-6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_165 /* rocky-air-l-7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_166 /* rocky-air-l-8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_167 /* rocky-air-l-9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-l-9.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_168 /* rocky-air-r-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_169 /* rocky-air-r-1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_170 /* rocky-air-r-10.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-10.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_171 /* rocky-air-r-11.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-11.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_172 /* rocky-air-r-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_173 /* rocky-air-r-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_174 /* rocky-air-r-4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_175 /* rocky-air-r-5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_176 /* rocky-air-r-6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_177 /* rocky-air-r-7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_178 /* rocky-air-r-8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_179 /* rocky-air-r-9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-r-9.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_180 /* rocky-fall-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_181 /* rocky-fall-1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_182 /* rocky-fall-10.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-10.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_183 /* rocky-fall-11.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-11.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_184 /* rocky-fall-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_185 /* rocky-fall-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_186 /* rocky-fall-4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_187 /* rocky-fall-5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_188 /* rocky-fall-6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_189 /* rocky-fall-7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_190 /* rocky-fall-8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_191 /* rocky-fall-9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-fall-9.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_192 /* rocky-idle-left.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-idle-left.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_193 /* rocky-idle-right.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-idle-right.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_194 /* rocky-mad-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_195 /* rocky-mad-1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_196 /* rocky-mad-10.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-10.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_197 /* rocky-mad-11.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-11.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_198 /* rocky-mad-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_199 /* rocky-mad-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_200 /* rocky-mad-4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_201 /* rocky-mad-5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_202 /* rocky-mad-6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_203 /* rocky-mad-7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_204 /* rocky-mad-8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_205 /* rocky-mad-9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-mad-9.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_206 /* rocky-pickup-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_207 /* rocky-pickup-1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_208 /* rocky-pickup-10.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-10.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_209 /* rocky-pickup-11.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-11.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_210 /* rocky-pickup-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_211 /* rocky-pickup-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_212 /* rocky-pickup-4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_213 /* rocky-pickup-5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_214 /* rocky-pickup-6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_215 /* rocky-pickup-7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_216 /* rocky-pickup-8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_217 /* rocky-pickup-9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pickup-9.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_218 /* rocky-pop-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_219 /* rocky-pop-1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_220 /* rocky-pop-10.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-10.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_221 /* rocky-pop-11.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-11.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_222 /* rocky-pop-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_223 /* rocky-pop-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_224 /* rocky-pop-4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_225 /* rocky-pop-5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_226 /* rocky-pop-6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_227 /* rocky-pop-7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_228 /* rocky-pop-8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_229 /* rocky-pop-9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-pop-9.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_230 /* rocky-stable-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_231 /* rocky-stable-1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_232 /* rocky-stable-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_233 /* rocky-stable-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_234 /* rocky-stable-4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_235 /* rocky-stable-5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_236 /* rocky-stable-6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_237 /* rocky-stable-7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_238 /* rocky-stable-8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_239 /* rocky-stable-9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-stable-9.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_240 /* rocky-turn-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-turn-0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_241 /* rocky-turn-1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-turn-1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_242 /* rocky-turn-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-turn-2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_243 /* rocky-turn-3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-turn-3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_244 /* rocky-turn-4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-turn-4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_245 /* rocky-turn-5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-turn-5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_246 /* rocky-walk-left-f0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_247 /* rocky-walk-left-f1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_248 /* rocky-walk-left-f2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_249 /* rocky-walk-left-f3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_250 /* rocky-walk-left-f4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_251 /* rocky-walk-left-f5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_252 /* rocky-walk-left-f6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_253 /* rocky-walk-left-f7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_254 /* rocky-walk-left-f8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_255 /* rocky-walk-left-f9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-left-f9.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_256 /* rocky-walk-right-f0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f0.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_257 /* rocky-walk-right-f1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f1.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_258 /* rocky-walk-right-f2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f2.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_259 /* rocky-walk-right-f3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f3.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_260 /* rocky-walk-right-f4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f4.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_261 /* rocky-walk-right-f5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f5.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_262 /* rocky-walk-right-f6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f6.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_263 /* rocky-walk-right-f7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f7.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_264 /* rocky-walk-right-f8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f8.png"; sourceTree = "<group>"; };
+		AB10000000000000000000_265 /* rocky-walk-right-f9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-walk-right-f9.png"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -308,8 +566,13 @@
 				AB10000000000000000000_10 /* MascotView.swift */,
 				AB10000000000000000000_03 /* Mood.swift */,
 				AB10000000000000000000_05 /* UsageStore.swift */,
-				AB10000000000000000000_07 /* OAuthUsagePoller.swift */,
-				AB10000000000000000000_08 /* StatuslineBridge.swift */,
+				AB10000000000000000000_07 /* HermesStatsPoller.swift */,
+				AB10000000000000000000_08 /* HermesStats.swift */,
+				AB10000000000000000000_143 /* HermesChatClient.swift */,
+				AB10000000000000000000_268 /* SpaceAgentChatUI.swift */,
+				AB10000000000000000000_269 /* SpaceAgentShellView.swift */,
+				AB10000000000000000000_273 /* OnscreenAgentPhysics.swift */,
+				AB10000000000000000000_276 /* HermesSlashCatalog.swift */,
 				AB10000000000000000000_06 /* CredentialsProvider.swift */,
 				AB10000000000000000000_04 /* JSONProbe.swift */,
 				AB40000000000000000000_04 /* Assets */,
@@ -320,6 +583,128 @@
 		AB40000000000000000000_04 /* Assets */ = {
 			isa = PBXGroup;
 			children = (
+				AB10000000000000000000_144 /* rocky-air-0.png */,
+				AB10000000000000000000_145 /* rocky-air-1.png */,
+				AB10000000000000000000_146 /* rocky-air-10.png */,
+				AB10000000000000000000_147 /* rocky-air-11.png */,
+				AB10000000000000000000_148 /* rocky-air-2.png */,
+				AB10000000000000000000_149 /* rocky-air-3.png */,
+				AB10000000000000000000_150 /* rocky-air-4.png */,
+				AB10000000000000000000_151 /* rocky-air-5.png */,
+				AB10000000000000000000_152 /* rocky-air-6.png */,
+				AB10000000000000000000_153 /* rocky-air-7.png */,
+				AB10000000000000000000_154 /* rocky-air-8.png */,
+				AB10000000000000000000_155 /* rocky-air-9.png */,
+				AB10000000000000000000_156 /* rocky-air-l-0.png */,
+				AB10000000000000000000_157 /* rocky-air-l-1.png */,
+				AB10000000000000000000_158 /* rocky-air-l-10.png */,
+				AB10000000000000000000_159 /* rocky-air-l-11.png */,
+				AB10000000000000000000_160 /* rocky-air-l-2.png */,
+				AB10000000000000000000_161 /* rocky-air-l-3.png */,
+				AB10000000000000000000_162 /* rocky-air-l-4.png */,
+				AB10000000000000000000_163 /* rocky-air-l-5.png */,
+				AB10000000000000000000_164 /* rocky-air-l-6.png */,
+				AB10000000000000000000_165 /* rocky-air-l-7.png */,
+				AB10000000000000000000_166 /* rocky-air-l-8.png */,
+				AB10000000000000000000_167 /* rocky-air-l-9.png */,
+				AB10000000000000000000_168 /* rocky-air-r-0.png */,
+				AB10000000000000000000_169 /* rocky-air-r-1.png */,
+				AB10000000000000000000_170 /* rocky-air-r-10.png */,
+				AB10000000000000000000_171 /* rocky-air-r-11.png */,
+				AB10000000000000000000_172 /* rocky-air-r-2.png */,
+				AB10000000000000000000_173 /* rocky-air-r-3.png */,
+				AB10000000000000000000_174 /* rocky-air-r-4.png */,
+				AB10000000000000000000_175 /* rocky-air-r-5.png */,
+				AB10000000000000000000_176 /* rocky-air-r-6.png */,
+				AB10000000000000000000_177 /* rocky-air-r-7.png */,
+				AB10000000000000000000_178 /* rocky-air-r-8.png */,
+				AB10000000000000000000_179 /* rocky-air-r-9.png */,
+				AB10000000000000000000_180 /* rocky-fall-0.png */,
+				AB10000000000000000000_181 /* rocky-fall-1.png */,
+				AB10000000000000000000_182 /* rocky-fall-10.png */,
+				AB10000000000000000000_183 /* rocky-fall-11.png */,
+				AB10000000000000000000_184 /* rocky-fall-2.png */,
+				AB10000000000000000000_185 /* rocky-fall-3.png */,
+				AB10000000000000000000_186 /* rocky-fall-4.png */,
+				AB10000000000000000000_187 /* rocky-fall-5.png */,
+				AB10000000000000000000_188 /* rocky-fall-6.png */,
+				AB10000000000000000000_189 /* rocky-fall-7.png */,
+				AB10000000000000000000_190 /* rocky-fall-8.png */,
+				AB10000000000000000000_191 /* rocky-fall-9.png */,
+				AB10000000000000000000_192 /* rocky-idle-left.png */,
+				AB10000000000000000000_193 /* rocky-idle-right.png */,
+				AB10000000000000000000_194 /* rocky-mad-0.png */,
+				AB10000000000000000000_195 /* rocky-mad-1.png */,
+				AB10000000000000000000_196 /* rocky-mad-10.png */,
+				AB10000000000000000000_197 /* rocky-mad-11.png */,
+				AB10000000000000000000_198 /* rocky-mad-2.png */,
+				AB10000000000000000000_199 /* rocky-mad-3.png */,
+				AB10000000000000000000_200 /* rocky-mad-4.png */,
+				AB10000000000000000000_201 /* rocky-mad-5.png */,
+				AB10000000000000000000_202 /* rocky-mad-6.png */,
+				AB10000000000000000000_203 /* rocky-mad-7.png */,
+				AB10000000000000000000_204 /* rocky-mad-8.png */,
+				AB10000000000000000000_205 /* rocky-mad-9.png */,
+				AB10000000000000000000_206 /* rocky-pickup-0.png */,
+				AB10000000000000000000_207 /* rocky-pickup-1.png */,
+				AB10000000000000000000_208 /* rocky-pickup-10.png */,
+				AB10000000000000000000_209 /* rocky-pickup-11.png */,
+				AB10000000000000000000_210 /* rocky-pickup-2.png */,
+				AB10000000000000000000_211 /* rocky-pickup-3.png */,
+				AB10000000000000000000_212 /* rocky-pickup-4.png */,
+				AB10000000000000000000_213 /* rocky-pickup-5.png */,
+				AB10000000000000000000_214 /* rocky-pickup-6.png */,
+				AB10000000000000000000_215 /* rocky-pickup-7.png */,
+				AB10000000000000000000_216 /* rocky-pickup-8.png */,
+				AB10000000000000000000_217 /* rocky-pickup-9.png */,
+				AB10000000000000000000_218 /* rocky-pop-0.png */,
+				AB10000000000000000000_219 /* rocky-pop-1.png */,
+				AB10000000000000000000_220 /* rocky-pop-10.png */,
+				AB10000000000000000000_221 /* rocky-pop-11.png */,
+				AB10000000000000000000_222 /* rocky-pop-2.png */,
+				AB10000000000000000000_223 /* rocky-pop-3.png */,
+				AB10000000000000000000_224 /* rocky-pop-4.png */,
+				AB10000000000000000000_225 /* rocky-pop-5.png */,
+				AB10000000000000000000_226 /* rocky-pop-6.png */,
+				AB10000000000000000000_227 /* rocky-pop-7.png */,
+				AB10000000000000000000_228 /* rocky-pop-8.png */,
+				AB10000000000000000000_229 /* rocky-pop-9.png */,
+				AB10000000000000000000_230 /* rocky-stable-0.png */,
+				AB10000000000000000000_231 /* rocky-stable-1.png */,
+				AB10000000000000000000_232 /* rocky-stable-2.png */,
+				AB10000000000000000000_233 /* rocky-stable-3.png */,
+				AB10000000000000000000_234 /* rocky-stable-4.png */,
+				AB10000000000000000000_235 /* rocky-stable-5.png */,
+				AB10000000000000000000_236 /* rocky-stable-6.png */,
+				AB10000000000000000000_237 /* rocky-stable-7.png */,
+				AB10000000000000000000_238 /* rocky-stable-8.png */,
+				AB10000000000000000000_239 /* rocky-stable-9.png */,
+				AB10000000000000000000_240 /* rocky-turn-0.png */,
+				AB10000000000000000000_241 /* rocky-turn-1.png */,
+				AB10000000000000000000_242 /* rocky-turn-2.png */,
+				AB10000000000000000000_243 /* rocky-turn-3.png */,
+				AB10000000000000000000_244 /* rocky-turn-4.png */,
+				AB10000000000000000000_245 /* rocky-turn-5.png */,
+				AB10000000000000000000_246 /* rocky-walk-left-f0.png */,
+				AB10000000000000000000_247 /* rocky-walk-left-f1.png */,
+				AB10000000000000000000_248 /* rocky-walk-left-f2.png */,
+				AB10000000000000000000_249 /* rocky-walk-left-f3.png */,
+				AB10000000000000000000_250 /* rocky-walk-left-f4.png */,
+				AB10000000000000000000_251 /* rocky-walk-left-f5.png */,
+				AB10000000000000000000_252 /* rocky-walk-left-f6.png */,
+				AB10000000000000000000_253 /* rocky-walk-left-f7.png */,
+				AB10000000000000000000_254 /* rocky-walk-left-f8.png */,
+				AB10000000000000000000_255 /* rocky-walk-left-f9.png */,
+				AB10000000000000000000_256 /* rocky-walk-right-f0.png */,
+				AB10000000000000000000_257 /* rocky-walk-right-f1.png */,
+				AB10000000000000000000_258 /* rocky-walk-right-f2.png */,
+				AB10000000000000000000_259 /* rocky-walk-right-f3.png */,
+				AB10000000000000000000_260 /* rocky-walk-right-f4.png */,
+				AB10000000000000000000_261 /* rocky-walk-right-f5.png */,
+				AB10000000000000000000_262 /* rocky-walk-right-f6.png */,
+				AB10000000000000000000_263 /* rocky-walk-right-f7.png */,
+				AB10000000000000000000_264 /* rocky-walk-right-f8.png */,
+				AB10000000000000000000_265 /* rocky-walk-right-f9.png */,
 				AB10000000000000000000_18 /* walk-right-f0.png */,
 				AB10000000000000000000_19 /* walk-right-f1.png */,
 				AB10000000000000000000_20 /* walk-right-f2.png */,
@@ -442,6 +827,8 @@
 				AB10000000000000000000_115 /* stable-7.png */,
 				AB10000000000000000000_116 /* stable-8.png */,
 				AB10000000000000000000_117 /* stable-9.png */,
+				AB10000000000000000000_274 /* astronaut_no_bg.webp */,
+				AB10000000000000000000_275 /* helmet_no_bg_256.webp */,
 			);
 			path = Assets;
 			sourceTree = "<group>";
@@ -512,6 +899,128 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AB20000000000000000000_144 /* rocky-air-0.png in Resources */,
+				AB20000000000000000000_145 /* rocky-air-1.png in Resources */,
+				AB20000000000000000000_146 /* rocky-air-10.png in Resources */,
+				AB20000000000000000000_147 /* rocky-air-11.png in Resources */,
+				AB20000000000000000000_148 /* rocky-air-2.png in Resources */,
+				AB20000000000000000000_149 /* rocky-air-3.png in Resources */,
+				AB20000000000000000000_150 /* rocky-air-4.png in Resources */,
+				AB20000000000000000000_151 /* rocky-air-5.png in Resources */,
+				AB20000000000000000000_152 /* rocky-air-6.png in Resources */,
+				AB20000000000000000000_153 /* rocky-air-7.png in Resources */,
+				AB20000000000000000000_154 /* rocky-air-8.png in Resources */,
+				AB20000000000000000000_155 /* rocky-air-9.png in Resources */,
+				AB20000000000000000000_156 /* rocky-air-l-0.png in Resources */,
+				AB20000000000000000000_157 /* rocky-air-l-1.png in Resources */,
+				AB20000000000000000000_158 /* rocky-air-l-10.png in Resources */,
+				AB20000000000000000000_159 /* rocky-air-l-11.png in Resources */,
+				AB20000000000000000000_160 /* rocky-air-l-2.png in Resources */,
+				AB20000000000000000000_161 /* rocky-air-l-3.png in Resources */,
+				AB20000000000000000000_162 /* rocky-air-l-4.png in Resources */,
+				AB20000000000000000000_163 /* rocky-air-l-5.png in Resources */,
+				AB20000000000000000000_164 /* rocky-air-l-6.png in Resources */,
+				AB20000000000000000000_165 /* rocky-air-l-7.png in Resources */,
+				AB20000000000000000000_166 /* rocky-air-l-8.png in Resources */,
+				AB20000000000000000000_167 /* rocky-air-l-9.png in Resources */,
+				AB20000000000000000000_168 /* rocky-air-r-0.png in Resources */,
+				AB20000000000000000000_169 /* rocky-air-r-1.png in Resources */,
+				AB20000000000000000000_170 /* rocky-air-r-10.png in Resources */,
+				AB20000000000000000000_171 /* rocky-air-r-11.png in Resources */,
+				AB20000000000000000000_172 /* rocky-air-r-2.png in Resources */,
+				AB20000000000000000000_173 /* rocky-air-r-3.png in Resources */,
+				AB20000000000000000000_174 /* rocky-air-r-4.png in Resources */,
+				AB20000000000000000000_175 /* rocky-air-r-5.png in Resources */,
+				AB20000000000000000000_176 /* rocky-air-r-6.png in Resources */,
+				AB20000000000000000000_177 /* rocky-air-r-7.png in Resources */,
+				AB20000000000000000000_178 /* rocky-air-r-8.png in Resources */,
+				AB20000000000000000000_179 /* rocky-air-r-9.png in Resources */,
+				AB20000000000000000000_180 /* rocky-fall-0.png in Resources */,
+				AB20000000000000000000_181 /* rocky-fall-1.png in Resources */,
+				AB20000000000000000000_182 /* rocky-fall-10.png in Resources */,
+				AB20000000000000000000_183 /* rocky-fall-11.png in Resources */,
+				AB20000000000000000000_184 /* rocky-fall-2.png in Resources */,
+				AB20000000000000000000_185 /* rocky-fall-3.png in Resources */,
+				AB20000000000000000000_186 /* rocky-fall-4.png in Resources */,
+				AB20000000000000000000_187 /* rocky-fall-5.png in Resources */,
+				AB20000000000000000000_188 /* rocky-fall-6.png in Resources */,
+				AB20000000000000000000_189 /* rocky-fall-7.png in Resources */,
+				AB20000000000000000000_190 /* rocky-fall-8.png in Resources */,
+				AB20000000000000000000_191 /* rocky-fall-9.png in Resources */,
+				AB20000000000000000000_192 /* rocky-idle-left.png in Resources */,
+				AB20000000000000000000_193 /* rocky-idle-right.png in Resources */,
+				AB20000000000000000000_194 /* rocky-mad-0.png in Resources */,
+				AB20000000000000000000_195 /* rocky-mad-1.png in Resources */,
+				AB20000000000000000000_196 /* rocky-mad-10.png in Resources */,
+				AB20000000000000000000_197 /* rocky-mad-11.png in Resources */,
+				AB20000000000000000000_198 /* rocky-mad-2.png in Resources */,
+				AB20000000000000000000_199 /* rocky-mad-3.png in Resources */,
+				AB20000000000000000000_200 /* rocky-mad-4.png in Resources */,
+				AB20000000000000000000_201 /* rocky-mad-5.png in Resources */,
+				AB20000000000000000000_202 /* rocky-mad-6.png in Resources */,
+				AB20000000000000000000_203 /* rocky-mad-7.png in Resources */,
+				AB20000000000000000000_204 /* rocky-mad-8.png in Resources */,
+				AB20000000000000000000_205 /* rocky-mad-9.png in Resources */,
+				AB20000000000000000000_206 /* rocky-pickup-0.png in Resources */,
+				AB20000000000000000000_207 /* rocky-pickup-1.png in Resources */,
+				AB20000000000000000000_208 /* rocky-pickup-10.png in Resources */,
+				AB20000000000000000000_209 /* rocky-pickup-11.png in Resources */,
+				AB20000000000000000000_210 /* rocky-pickup-2.png in Resources */,
+				AB20000000000000000000_211 /* rocky-pickup-3.png in Resources */,
+				AB20000000000000000000_212 /* rocky-pickup-4.png in Resources */,
+				AB20000000000000000000_213 /* rocky-pickup-5.png in Resources */,
+				AB20000000000000000000_214 /* rocky-pickup-6.png in Resources */,
+				AB20000000000000000000_215 /* rocky-pickup-7.png in Resources */,
+				AB20000000000000000000_216 /* rocky-pickup-8.png in Resources */,
+				AB20000000000000000000_217 /* rocky-pickup-9.png in Resources */,
+				AB20000000000000000000_218 /* rocky-pop-0.png in Resources */,
+				AB20000000000000000000_219 /* rocky-pop-1.png in Resources */,
+				AB20000000000000000000_220 /* rocky-pop-10.png in Resources */,
+				AB20000000000000000000_221 /* rocky-pop-11.png in Resources */,
+				AB20000000000000000000_222 /* rocky-pop-2.png in Resources */,
+				AB20000000000000000000_223 /* rocky-pop-3.png in Resources */,
+				AB20000000000000000000_224 /* rocky-pop-4.png in Resources */,
+				AB20000000000000000000_225 /* rocky-pop-5.png in Resources */,
+				AB20000000000000000000_226 /* rocky-pop-6.png in Resources */,
+				AB20000000000000000000_227 /* rocky-pop-7.png in Resources */,
+				AB20000000000000000000_228 /* rocky-pop-8.png in Resources */,
+				AB20000000000000000000_229 /* rocky-pop-9.png in Resources */,
+				AB20000000000000000000_230 /* rocky-stable-0.png in Resources */,
+				AB20000000000000000000_231 /* rocky-stable-1.png in Resources */,
+				AB20000000000000000000_232 /* rocky-stable-2.png in Resources */,
+				AB20000000000000000000_233 /* rocky-stable-3.png in Resources */,
+				AB20000000000000000000_234 /* rocky-stable-4.png in Resources */,
+				AB20000000000000000000_235 /* rocky-stable-5.png in Resources */,
+				AB20000000000000000000_236 /* rocky-stable-6.png in Resources */,
+				AB20000000000000000000_237 /* rocky-stable-7.png in Resources */,
+				AB20000000000000000000_238 /* rocky-stable-8.png in Resources */,
+				AB20000000000000000000_239 /* rocky-stable-9.png in Resources */,
+				AB20000000000000000000_240 /* rocky-turn-0.png in Resources */,
+				AB20000000000000000000_241 /* rocky-turn-1.png in Resources */,
+				AB20000000000000000000_242 /* rocky-turn-2.png in Resources */,
+				AB20000000000000000000_243 /* rocky-turn-3.png in Resources */,
+				AB20000000000000000000_244 /* rocky-turn-4.png in Resources */,
+				AB20000000000000000000_245 /* rocky-turn-5.png in Resources */,
+				AB20000000000000000000_246 /* rocky-walk-left-f0.png in Resources */,
+				AB20000000000000000000_247 /* rocky-walk-left-f1.png in Resources */,
+				AB20000000000000000000_248 /* rocky-walk-left-f2.png in Resources */,
+				AB20000000000000000000_249 /* rocky-walk-left-f3.png in Resources */,
+				AB20000000000000000000_250 /* rocky-walk-left-f4.png in Resources */,
+				AB20000000000000000000_251 /* rocky-walk-left-f5.png in Resources */,
+				AB20000000000000000000_252 /* rocky-walk-left-f6.png in Resources */,
+				AB20000000000000000000_253 /* rocky-walk-left-f7.png in Resources */,
+				AB20000000000000000000_254 /* rocky-walk-left-f8.png in Resources */,
+				AB20000000000000000000_255 /* rocky-walk-left-f9.png in Resources */,
+				AB20000000000000000000_256 /* rocky-walk-right-f0.png in Resources */,
+				AB20000000000000000000_257 /* rocky-walk-right-f1.png in Resources */,
+				AB20000000000000000000_258 /* rocky-walk-right-f2.png in Resources */,
+				AB20000000000000000000_259 /* rocky-walk-right-f3.png in Resources */,
+				AB20000000000000000000_260 /* rocky-walk-right-f4.png in Resources */,
+				AB20000000000000000000_261 /* rocky-walk-right-f5.png in Resources */,
+				AB20000000000000000000_262 /* rocky-walk-right-f6.png in Resources */,
+				AB20000000000000000000_263 /* rocky-walk-right-f7.png in Resources */,
+				AB20000000000000000000_264 /* rocky-walk-right-f8.png in Resources */,
+				AB20000000000000000000_265 /* rocky-walk-right-f9.png in Resources */,
 				AB20000000000000000000_18 /* walk-right-f0.png in Resources */,
 				AB20000000000000000000_19 /* walk-right-f1.png in Resources */,
 				AB20000000000000000000_20 /* walk-right-f2.png in Resources */,
@@ -634,6 +1143,8 @@
 				AB20000000000000000000_115 /* stable-7.png in Resources */,
 				AB20000000000000000000_116 /* stable-8.png in Resources */,
 				AB20000000000000000000_117 /* stable-9.png in Resources */,
+				AB20000000000000000000_274 /* astronaut_no_bg.webp in Resources */,
+				AB20000000000000000000_275 /* helmet_no_bg_256.webp in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -650,11 +1161,16 @@
 				AB20000000000000000000_04 /* JSONProbe.swift in Sources */,
 				AB20000000000000000000_05 /* UsageStore.swift in Sources */,
 				AB20000000000000000000_06 /* CredentialsProvider.swift in Sources */,
-				AB20000000000000000000_07 /* OAuthUsagePoller.swift in Sources */,
-				AB20000000000000000000_08 /* StatuslineBridge.swift in Sources */,
+				AB20000000000000000000_07 /* HermesStatsPoller.swift in Sources */,
+				AB20000000000000000000_08 /* HermesStats.swift in Sources */,
 				AB20000000000000000000_09 /* WalkEngine.swift in Sources */,
 				AB20000000000000000000_10 /* MascotView.swift in Sources */,
 				AB20000000000000000000_11 /* MascotController.swift in Sources */,
+				AB20000000000000000000_143 /* HermesChatClient.swift in Sources */,
+				AB20000000000000000000_268 /* SpaceAgentChatUI.swift in Sources */,
+				AB20000000000000000000_269 /* SpaceAgentShellView.swift in Sources */,
+				AB20000000000000000000_273 /* OnscreenAgentPhysics.swift in Sources */,
+				AB20000000000000000000_276 /* HermesSlashCatalog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

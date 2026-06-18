@@ -2,44 +2,68 @@ import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: UsageStore?
-    private var poller: OAuthUsagePoller?
-    private var bridge: StatuslineBridge?
+    private var poller: HermesStatsPoller?
     private var controller: MascotController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let store = UsageStore()
-        let poller = OAuthUsagePoller(store: store)
-        let bridge = StatuslineBridge(store: store)
-        let controller = MascotController(store: store, poller: poller, bridge: bridge)
+        let poller = HermesStatsPoller(store: store)
+        let controller = MascotController(store: store, poller: poller)
 
         self.store = store
         self.poller = poller
-        self.bridge = bridge
         self.controller = controller
 
-        // Debug hook: PIP_FAKE_USAGE="usedPct:minutesUntilReset" forces a
-        // synthetic 5-hour window (and skips the live sources so it sticks),
-        // e.g. PIP_FAKE_USAGE="5:120" to rehearse the mad/fuming behavior.
+        Self.installSlashCatalogScript()
+        HermesSlashCatalog.shared.refreshIfNeeded(force: true)
+
+        // Debug hook: PIP_FAKE_USAGE="sessions:toolCalls:memoryPct" forces a
+        // synthetic Hermes state, e.g. PIP_FAKE_USAGE="5:200:85"
         if let fake = ProcessInfo.processInfo.environment["PIP_FAKE_USAGE"] {
             let p = fake.split(separator: ":")
-            if p.count == 2, let used = Double(p[0]), let mins = Double(p[1]) {
-                var snap = UsageSnapshot()
-                snap.fiveHourUsedPct = used
-                snap.fiveHourResetsAt = Date().addingTimeInterval(mins * 60)
-                snap.weeklyUsedPct = 35
-                snap.weeklyResetsAt = Date().addingTimeInterval(3 * 86400)
-                snap.lastUpdated = Date()
+            if p.count == 3,
+               let sessions = Int(p[0]),
+               let toolCalls = Int(p[1]),
+               let memPct = Double(p[2]) {
+                var stats = HermesStats()
+                stats.hermesRunning = true
+                stats.gatewayRunning = true
+                stats.activeSessions = sessions
+                stats.toolCallsRecent = toolCalls
+                stats.memoryPct = memPct
+                stats.userProfilePct = memPct
+                stats.skillsCount = 248
+                stats.lastSessionSecondsAgo = 30
+                stats.lastUpdated = Date()
                 store.markTokenAvailable(true)
-                store.ingest(snap, source: "fake")
+                store.ingestHermes(stats)
                 controller.show()
-                return                                   // don't start live pollers
+                return
             }
         }
 
         poller.start()
-        bridge.start()
         controller.show()
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
+
+    private static func installSlashCatalogScript() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let dest = home.appendingPathComponent(".hermes/pip-slash-catalog.py")
+        let candidates = [
+            home.appendingPathComponent("Desktop/pip-mascot/scripts/pip-slash-catalog.py"),
+            Bundle.main.resourcePath.map { URL(fileURLWithPath: $0).appendingPathComponent("pip-slash-catalog.py") },
+        ].compactMap { $0 }
+        guard let source = candidates.first(where: { FileManager.default.fileExists(atPath: $0.path) }) else { return }
+        do {
+            if FileManager.default.fileExists(atPath: dest.path) {
+                try FileManager.default.removeItem(at: dest)
+            }
+            try FileManager.default.copyItem(at: source, to: dest)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dest.path)
+        } catch {
+            // Fall back to bundled/dev path resolution in HermesSlashCatalog.
+        }
+    }
 }

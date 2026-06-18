@@ -1,37 +1,51 @@
 import SwiftUI
 
-/// Rename the mascot here — used in the menu, speech bubbles, and bridge script comments.
-let mascotName = "Pip"
+/// Rename the onscreen agent here — used in the menu and speech bubbles.
+let mascotName = "Space Agent"
+
+/// Which character to show: the sprite-based mascot or a procedurally drawn rock.
+enum Appearance: String, CaseIterable {
+    case rocky
+    case mascot
+}
+
+/// UserDefaults key for the current appearance preference.
+let appearanceKey = "pipAppearance"
+func currentAppearanceName() -> String {
+    UserDefaults.standard.string(forKey: appearanceKey) ?? Appearance.mascot.rawValue
+}
+func displayName(for raw: String) -> String {
+    switch raw {
+    case Appearance.rocky.rawValue: return "Rocky"
+    case Appearance.mascot.rawValue: return mascotName
+    default: return mascotName
+    }
+}
 
 enum Mood: String {
-    case mad        // confidently wasting the window — stops and fumes at you
-    case antsy      // loafing — quota about to be wasted
-    case happy      // on pace
-    case focused    // burning hot but fine
-    case worried    // lockout risk (>= 90% of 5h window)
-    case sleepy     // no data / not logged in
+    case antsy      // idle — Hermes is running but nothing's happening ("use me!")
+    case happy      // moderately active — humming along
+    case focused    // busy — lots of sessions and tool calls
+    case worried    // memory nearly full — needs pruning
+    case sleepy     // Hermes gateway/process is down
 
     /// Multiplier on the base stroll speed.
     var speedFactor: CGFloat {
         switch self {
-        case .mad:     return 1.5    // stomps fast between fuming fits
-        case .antsy:   return 1.35
+        case .antsy:   return 1.3
         case .happy:   return 1.0
-        case .focused: return 1.15
-        case .worried: return 0.75
+        case .focused: return 1.2
+        case .worried: return 0.7
         case .sleepy:  return 0
         }
     }
 
-    /// Walk cadence in steps (footfalls) per second — decoupled from movement
-    /// speed, so step length = speed / cadence varies by mood (worried takes
-    /// quick little shuffling steps, happy an easy stroll).
+    /// Walk cadence in steps (footfalls) per second.
     var strideHz: Double {
         switch self {
-        case .worried: return 3.0
-        case .mad:     return 3.2    // angry stomp
-        case .antsy:   return 2.4
-        case .focused: return 2.1
+        case .worried: return 2.8
+        case .antsy:   return 2.2
+        case .focused: return 2.4
         case .happy:   return 1.8
         case .sleepy:  return 0
         }
@@ -50,21 +64,21 @@ enum Palette {
     static let sweat     = Color(red: 0.45, green: 0.70, blue: 0.95)
     static let shadow    = Color.black.opacity(0.13)
 
-    // Claude brand — warm clay on ivory, for the hover usage card.
-    static let claudeClay  = Color(red: 0.80, green: 0.47, blue: 0.36)    // #CC785C
-    static let claudeCream = Color(red: 0.972, green: 0.965, blue: 0.945) // ivory card
-    static let claudeInk   = Color(red: 0.20, green: 0.19, blue: 0.17)    // warm near-black
-    static let claudeAmber = Color(red: 0.87, green: 0.55, blue: 0.27)
-    static let claudeAlert = Color(red: 0.78, green: 0.29, blue: 0.25)
+    // Hermes brand — warm purple on ivory
+    static let hermesPurple = Color(red: 0.60, green: 0.40, blue: 0.75)   // #9966BF
+    static let hermesCream  = Color(red: 0.972, green: 0.965, blue: 0.945) // ivory card
+    static let hermesInk    = Color(red: 0.20, green: 0.19, blue: 0.17)    // warm near-black
+    static let hermesAmber  = Color(red: 0.87, green: 0.55, blue: 0.27)
+    static let hermesAlert  = Color(red: 0.78, green: 0.29, blue: 0.25)
 
-    /// Usage-bar fill: calm clay → amber → alert as the meter fills.
+    /// Usage-bar fill: calm purple → amber → alert as the meter fills.
     static func usageFill(_ pct: Double) -> Color {
-        if pct >= 90 { return claudeAlert }
-        if pct >= 70 { return claudeAmber }
-        return claudeClay
+        if pct >= 90 { return hermesAlert }
+        if pct >= 70 { return hermesAmber }
+        return hermesPurple
     }
 
-    /// Scarf tint for the weekly cap: calm teal -> amber -> warning red past ~80%.
+    /// Scarf tint for memory fullness.
     static func scarf(weeklyPct: Double) -> Color {
         let p = min(100, max(0, weeklyPct))
         if p < 50 {
