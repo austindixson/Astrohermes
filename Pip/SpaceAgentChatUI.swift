@@ -24,7 +24,7 @@ enum SpaceAgentChatTokens {
     static let panelBorder = Color(red: 168 / 255, green: 186 / 255, blue: 219 / 255).opacity(0.16)
     static let panelRadius: CGFloat = 22
     static let compactPanelRadius: CGFloat = 19
-    static let panelWidth: CGFloat = 272
+    static let panelWidth: CGFloat = 440
     static let compactPanelWidth: CGFloat = 260
     static let compactPanelHeight: CGFloat = 52
     static let composerMinHeight: CGFloat = 24
@@ -71,8 +71,11 @@ enum SpaceAgentChatTokens {
     }
     static let panelBgStrong = Color(red: 18 / 255, green: 29 / 255, blue: 51 / 255).opacity(0.74)
     static let danger = Color(red: 0.92, green: 0.28, blue: 0.28)
-    static let historyMinHeight: CGFloat = 72
-    static let historyIdealHeight: CGFloat = 108
+    static let historyMinHeight: CGFloat = 140
+    static let historyIdealHeight: CGFloat = 380
+    static let historyMaxHeight: CGFloat = 480
+    static let codeBlockFontSize: CGFloat = 12
+    static let codeBlockRadius: CGFloat = 10
     static let inputBg = Color(red: 16 / 255, green: 27 / 255, blue: 45 / 255).opacity(0.92)
 
     static let userBubbleBg = Color(red: 19 / 255, green: 32 / 255, blue: 51 / 255)
@@ -1725,6 +1728,7 @@ private struct SpaceAgentComposerBar: View {
 struct SpaceAgentOnscreenChat: View {
     let mode: ChatDisplayMode
     let messages: [ChatBubbleMessage]
+    var liveTranscript: String? = nil
     let isLoading: Bool
     var statusText: String? = nil
     var compactAssistantText: String? = nil
@@ -1848,6 +1852,7 @@ struct SpaceAgentOnscreenChat: View {
     }
 
     private func acceptDroppedFiles(_ paths: [String]) {
+        HermesChatClient.shared.adoptWorkspace(paths: paths)
         SpaceAgentFileDrop.append(paths: paths, to: &inputText)
         afterFilePathsAppended()
     }
@@ -1874,7 +1879,13 @@ struct SpaceAgentOnscreenChat: View {
                     ForEach(messages) { msg in
                         SpaceAgentMessageRow(message: msg).id(msg.id)
                     }
-                    if isLoading {
+                    if let liveTranscript, !liveTranscript.isEmpty {
+                        SpaceAgentHermesLiveTranscriptRow(text: liveTranscript)
+                            .id("live-transcript")
+                    } else if isLoading, mode == .full {
+                        SpaceAgentHermesLiveTranscriptRow(text: "Initializing agent…")
+                            .id("loading")
+                    } else if isLoading {
                         SpaceAgentTypingIndicator().id("loading")
                     }
                     Color.clear.frame(height: 4).id("bottom")
@@ -1884,12 +1895,17 @@ struct SpaceAgentOnscreenChat: View {
             }
             .frame(minHeight: SpaceAgentChatTokens.historyMinHeight,
                    idealHeight: SpaceAgentChatTokens.historyIdealHeight,
-                   maxHeight: SpaceAgentChatTokens.historyIdealHeight)
+                   maxHeight: SpaceAgentChatTokens.historyMaxHeight)
             .onChange(of: messages.count) { _, _ in
                 withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
             }
+            .onChange(of: liveTranscript) { _, _ in
+                withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
             .onChange(of: isLoading) { _, loading in
-                if loading { withAnimation { proxy.scrollTo("loading", anchor: .bottom) } }
+                if loading {
+                    withAnimation { proxy.scrollTo(mode == .full ? "live-transcript" : "loading", anchor: .bottom) }
+                }
             }
         }
     }
@@ -1921,6 +1937,421 @@ struct SpaceAgentOnscreenChat: View {
     }
 }
 
+// MARK: - Full-thread markdown (code blocks, diffs)
+
+private enum SpaceAgentMarkdownBlock: Equatable {
+    case paragraph(String)
+    case code(language: String?, content: String)
+    case diff(String)
+}
+
+private enum SpaceAgentMarkdownParser {
+    static func parse(_ text: String) -> [SpaceAgentMarkdownBlock] {
+        var blocks: [SpaceAgentMarkdownBlock] = []
+        var remainder = text[...]
+
+        while !remainder.isEmpty {
+            if let fence = remainder.range(of: "```") {
+                let before = String(remainder[..<fence.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !before.isEmpty {
+                    appendParagraphs(before, to: &blocks)
+                }
+                remainder = remainder[fence.upperBound...]
+                let lineBreak = remainder.firstIndex(of: "\n")
+                let header = lineBreak.map { String(remainder[..<$0]) } ?? String(remainder)
+                let language = header.trimmingCharacters(in: .whitespaces).lowercased()
+                let lang = language.isEmpty ? nil : language
+                if let lineBreak {
+                    remainder = remainder[remainder.index(after: lineBreak)...]
+                } else {
+                    remainder = ""
+                }
+                if let end = remainder.range(of: "```") {
+                    let body = String(remainder[..<end.lowerBound]).trimmingCharacters(in: .newlines)
+                    if lang == "diff" || looksLikeDiff(body) {
+                        blocks.append(.diff(body))
+                    } else {
+                        blocks.append(.code(language: lang, content: body))
+                    }
+                    remainder = remainder[end.upperBound...]
+                } else {
+                    let body = String(remainder).trimmingCharacters(in: .newlines)
+                    if lang == "diff" || looksLikeDiff(body) {
+                        blocks.append(.diff(body))
+                    } else {
+                        blocks.append(.code(language: lang, content: body))
+                    }
+                    remainder = ""
+                }
+            } else {
+                appendParagraphs(String(remainder).trimmingCharacters(in: .whitespacesAndNewlines), to: &blocks)
+                remainder = ""
+            }
+        }
+        return blocks
+    }
+
+    private static func appendParagraphs(_ text: String, to blocks: inout [SpaceAgentMarkdownBlock]) {
+        guard !text.isEmpty else { return }
+        let parts = text.components(separatedBy: "\n\n").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        for part in parts where !part.isEmpty {
+            if looksLikeDiff(part) {
+                blocks.append(.diff(part))
+            } else {
+                blocks.append(.paragraph(part))
+            }
+        }
+    }
+
+    private static func looksLikeDiff(_ text: String) -> Bool {
+        if text.contains("diff --git") { return true }
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        guard lines.count >= 2 else { return false }
+        var hits = 0
+        for line in lines {
+            let raw = String(line)
+            let t = raw.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("- ") || t.hasPrefix("* ") || t.hasPrefix("• ") { continue }
+            if t.hasPrefix("diff --git") || t.hasPrefix("+++") || t.hasPrefix("@@") {
+                hits += 2
+                continue
+            }
+            if t.hasPrefix("---"), t.count > 3 {
+                let after = t.dropFirst(3)
+                if after.first == " " || after.first == "/" {
+                    hits += 1
+                    continue
+                }
+            }
+            if raw.hasPrefix("+") && !t.hasPrefix("+++") { hits += 1 }
+            else if raw.hasPrefix("-") { hits += 1 }
+        }
+        return hits >= 2
+    }
+}
+
+private struct SpaceAgentHermesReplyBody: View {
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .prose(let copy):
+                    Text(copy)
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundStyle(SpaceAgentHermesTheme.prose)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                case .code(let language, let content):
+                    SpaceAgentCodeBlockView(language: language, content: content)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private enum Block: Equatable {
+        case prose(String)
+        case code(language: String?, content: String)
+    }
+
+    private var blocks: [Block] {
+        var result: [Block] = []
+        var remainder = text[...]
+        while !remainder.isEmpty {
+            if let fence = remainder.range(of: "```") {
+                let before = String(remainder[..<fence.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !before.isEmpty { result.append(.prose(before)) }
+                remainder = remainder[fence.upperBound...]
+                let lineBreak = remainder.firstIndex(of: "\n")
+                let header = lineBreak.map { String(remainder[..<$0]) } ?? String(remainder)
+                let language = header.trimmingCharacters(in: .whitespaces)
+                let lang = language.isEmpty ? nil : language
+                if let lineBreak {
+                    remainder = remainder[remainder.index(after: lineBreak)...]
+                } else {
+                    remainder = ""
+                }
+                if let end = remainder.range(of: "```") {
+                    let body = String(remainder[..<end.lowerBound]).trimmingCharacters(in: .newlines)
+                    result.append(.code(language: lang, content: body))
+                    remainder = remainder[end.upperBound...]
+                } else {
+                    result.append(.code(language: lang, content: String(remainder).trimmingCharacters(in: .newlines)))
+                    remainder = ""
+                }
+            } else {
+                let tail = String(remainder).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !tail.isEmpty { result.append(.prose(tail)) }
+                remainder = ""
+            }
+        }
+        return result
+    }
+}
+
+private enum SpaceAgentHermesTheme {
+    static let prose = Color.white.opacity(0.9)
+    static let diffAdd = Color(red: 0.62, green: 0.88, blue: 0.72)
+    static let diffRemove = Color(red: 0.82, green: 0.78, blue: 0.88)
+    static let diffAddBg = Color(red: 0.35, green: 0.72, blue: 0.48).opacity(0.12)
+    static let diffRemoveBg = Palette.hermesPurple.opacity(0.14)
+    static let diffMeta = Color.white.opacity(0.5)
+}
+
+private struct SpaceAgentAssistantMessageBody: View {
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .paragraph(let copy):
+                    Text(copy)
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                case .code(let language, let content):
+                    SpaceAgentCodeBlockView(language: language, content: content)
+                case .diff(let content):
+                    SpaceAgentDiffBlockView(content: content)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var blocks: [SpaceAgentMarkdownBlock] {
+        SpaceAgentMarkdownParser.parse(text)
+    }
+}
+
+private struct SpaceAgentCodeBlockView: View {
+    let language: String?
+    let content: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let language, !language.isEmpty {
+                Text(language.uppercased())
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(content)
+                    .font(.system(size: SpaceAgentChatTokens.codeBlockFontSize, design: .monospaced))
+                    .foregroundStyle(Color(red: 0.82, green: 0.9, blue: 0.98))
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: true, vertical: true)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous)
+                .fill(Color.black.opacity(0.38))
+                .overlay(
+                    RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous)
+                        .strokeBorder(SpaceAgentChatTokens.panelBorder, lineWidth: 1)
+                )
+        )
+    }
+}
+
+private struct SpaceAgentDiffBlockView: View {
+    let content: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                Text(line.text)
+                    .font(.system(size: SpaceAgentChatTokens.codeBlockFontSize, design: .monospaced))
+                    .foregroundStyle(line.color)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 1)
+                    .background(line.background)
+            }
+        }
+        .textSelection(.enabled)
+        .clipShape(RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous)
+                .strokeBorder(SpaceAgentChatTokens.panelBorder, lineWidth: 1)
+        )
+    }
+
+    private struct DiffLine {
+        let text: String
+        let color: Color
+        let background: Color
+    }
+
+    private var lines: [DiffLine] {
+        content.components(separatedBy: "\n").map { raw in
+            let trimmed = raw.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("+++") || trimmed.hasPrefix("---") || trimmed.hasPrefix("@@") {
+                return DiffLine(text: raw, color: SpaceAgentHermesTheme.diffMeta, background: Color.white.opacity(0.04))
+            }
+            if raw.hasPrefix("+") {
+                return DiffLine(text: raw, color: SpaceAgentHermesTheme.diffAdd, background: SpaceAgentHermesTheme.diffAddBg)
+            }
+            if raw.hasPrefix("-") {
+                return DiffLine(text: raw, color: SpaceAgentHermesTheme.diffRemove, background: SpaceAgentHermesTheme.diffRemoveBg)
+            }
+            return DiffLine(text: raw, color: SpaceAgentHermesTheme.diffMeta, background: Color.black.opacity(0.28))
+        }
+    }
+}
+
+private struct SpaceAgentHermesTranscriptView: View {
+    let text: String
+    var live = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if blocks.isEmpty {
+                Text(text.isEmpty ? "Initializing agent…" : text)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in
+                    SpaceAgentHermesTranscriptBlockView(
+                        block: block,
+                        showActivity: live && index == blocks.count - 1
+                    )
+                }
+            }
+        }
+        .textSelection(.enabled)
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous)
+                .fill(Color.black.opacity(live ? 0.4 : 0.32))
+                .overlay(
+                    RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous)
+                        .strokeBorder(
+                            live ? Palette.hermesPurple.opacity(0.35) : SpaceAgentChatTokens.panelBorder,
+                            lineWidth: 1
+                        )
+                )
+        )
+    }
+
+    private var blocks: [HermesTranscriptBlock] {
+        HermesTranscriptParser.parse(text)
+    }
+}
+
+private struct SpaceAgentHermesTranscriptBlockView: View {
+    let block: HermesTranscriptBlock
+    var showActivity = false
+
+    var body: some View {
+        switch block {
+        case .status(let text):
+            HStack(spacing: 6) {
+                if showActivity {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Palette.hermesPurple.opacity(0.8))
+                }
+                Text(text)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+
+        case .toolTrace(let text):
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: toolIcon(for: text))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Palette.hermesPurple.opacity(0.9))
+                    .frame(width: 14)
+                Text(text)
+                    .font(.system(size: SpaceAgentChatTokens.codeBlockFontSize, design: .monospaced))
+                    .foregroundStyle(Palette.hermesPurple.opacity(0.88))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Palette.hermesPurple.opacity(0.1))
+            )
+
+        case .reply(let text):
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 5) {
+                    HermesSparkCompact().frame(width: 12, height: 12)
+                    Text("HERMES")
+                        .font(.system(size: 9, weight: .heavy, design: .rounded))
+                        .tracking(1.1)
+                        .foregroundStyle(Palette.hermesPurple)
+                }
+                SpaceAgentHermesReplyBody(text: text)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(SpaceAgentChatTokens.panelBorder, lineWidth: 1)
+                    )
+            )
+
+        case .sessionMeta(let session, let duration, let messages):
+            HStack(spacing: 6) {
+                Text(shortSessionID(session))
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.42))
+                if let duration {
+                    Text("·").foregroundStyle(.white.opacity(0.22))
+                    Text(duration)
+                }
+                if let messages {
+                    Text("·").foregroundStyle(.white.opacity(0.22))
+                    Text(messages)
+                }
+            }
+            .font(.system(size: 10, weight: .medium, design: .rounded))
+            .foregroundStyle(.white.opacity(0.38))
+            .padding(.top, 2)
+        }
+    }
+
+    private func shortSessionID(_ session: String) -> String {
+        guard session.count > 14 else { return session }
+        return String(session.suffix(12))
+    }
+
+    private func toolIcon(for text: String) -> String {
+        let lower = text.lowercased()
+        if lower.contains("search") || lower.contains("find") || lower.contains("🔎") { return "magnifyingglass" }
+        if lower.contains("diff") || lower.contains("review") { return "doc.text.magnifyingglass" }
+        if lower.contains("$") || lower.contains("terminal") || lower.contains("💻") { return "terminal" }
+        if lower.contains("write") || lower.contains("edit") { return "pencil" }
+        return "gearshape.2"
+    }
+}
+
+private struct SpaceAgentHermesLiveTranscriptRow: View {
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: SpaceAgentChatTokens.bubbleGap) {
+            SpaceAgentHelmetAvatar()
+            SpaceAgentHermesTranscriptView(text: text, live: true)
+            Spacer(minLength: 0)
+        }
+    }
+}
+
 private struct SpaceAgentMessageRow: View {
     let message: ChatBubbleMessage
 
@@ -1937,14 +2368,15 @@ private struct SpaceAgentMessageRow: View {
                         RoundedRectangle(cornerRadius: SpaceAgentChatTokens.userBubbleRadius, style: .continuous)
                             .fill(SpaceAgentChatTokens.userBubbleBg)
                     )
-                    .frame(maxWidth: 200, alignment: .trailing)
+                    .frame(maxWidth: 280, alignment: .trailing)
+            } else if message.isHermesTranscript {
+                SpaceAgentHelmetAvatar()
+                SpaceAgentHermesTranscriptView(text: message.text)
+                Spacer(minLength: 0)
             } else {
                 SpaceAgentHelmetAvatar()
-                Text(message.text)
-                    .font(.system(size: 14, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Spacer(minLength: 20)
+                SpaceAgentAssistantMessageBody(text: message.text)
+                Spacer(minLength: 8)
             }
         }
         .spaceAgentBubbleLand(token: message.id.uuidString)

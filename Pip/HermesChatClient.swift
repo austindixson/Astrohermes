@@ -13,8 +13,62 @@ final class HermesChatClient {
 
     static let shared = HermesChatClient()
 
+    private static let workspaceDefaultsKey = "pip.hermes.workingDirectory"
+
     private let workQueue = DispatchQueue(label: "pip.chat-client", qos: .userInitiated)
+    private let stateLock = NSLock()
     private var currentProcess: Process?
+    private var sessionID: String?
+    private var workingDirectory: String?
+
+    private init() {
+        if let saved = UserDefaults.standard.string(forKey: Self.workspaceDefaultsKey),
+           FileManager.default.fileExists(atPath: saved) {
+            workingDirectory = saved
+        }
+    }
+
+    /// Hermes session for the current Pip chat thread (cleared when chat closes or `/new`).
+    var activeSessionID: String? {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return sessionID
+    }
+
+    /// Directory Hermes runs in (from dropped files, paths in messages, or `/cwd`).
+    var activeWorkingDirectory: String? {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return workingDirectory
+    }
+
+    func resetSession() {
+        stateLock.lock()
+        sessionID = nil
+        stateLock.unlock()
+    }
+
+    func setWorkingDirectory(_ path: String?) {
+        let resolved = Self.resolveWorkspaceDirectory(path)
+        stateLock.lock()
+        workingDirectory = resolved
+        stateLock.unlock()
+        if let resolved {
+            UserDefaults.standard.set(resolved, forKey: Self.workspaceDefaultsKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: Self.workspaceDefaultsKey)
+        }
+    }
+
+    /// Pick a workspace from absolute paths in a message or dropped file list.
+    func adoptWorkspace(fromMessage message: String) {
+        adoptWorkspace(paths: Self.pathsMentioned(in: message))
+    }
+
+    func adoptWorkspace(paths: [String]) {
+        guard let resolved = Self.resolveWorkspaceDirectory(from: paths) else { return }
+        setWorkingDirectory(resolved)
+    }
 
     static let spaceAgentPersona = """
         You are the Space Agent, a floating astronaut assistant on the user's Mac desktop.
@@ -31,9 +85,12 @@ final class HermesChatClient {
     static let pipPersona = spaceAgentPersona
 
     /// Send a message and get Hermes's response. Calls completion on main queue.
-    /// `onPartial` fires on main queue as stdout arrives (trace line or compact reply).
+    /// `onPartial` fires on main queue as stdout arrives (compact bubble traces).
+    /// `onRawOutput` streams the full Hermes CLI transcript (full chat / TUI mode).
     func send(
         _ message: String,
+        verbose: Bool = false,
+        onRawOutput: ((String) -> Void)? = nil,
         onPartial: ((HermesStreamChunk?) -> Void)? = nil,
         completion: @escaping (Result<String, Error>) -> Void
     ) {
@@ -44,15 +101,34 @@ final class HermesChatClient {
             return
         }
 
+        adoptWorkspace(fromMessage: trimmed)
+
         workQueue.async { [weak self] in
             guard let self else { return }
 
             let hermesPath = self.findHermes() ?? "hermes"
-            let fullPrompt = Self.preparePrompt(for: trimmed)
+            let fullPrompt = Self.preparePrompt(for: trimmed, verbose: verbose)
+
+            self.stateLock.lock()
+            let resumeID = self.sessionID
+            let cwd = self.workingDirectory
+            self.stateLock.unlock()
+
+            var command = "\(hermesPath) chat -q \(self.quote(fullPrompt)) --source pip"
+            if !verbose {
+                command += " --quiet"
+            }
+            if let resumeID {
+                command += " --resume \(self.quote(resumeID))"
+            }
+            command += " 2>&1"
 
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/bash")
-            process.arguments = ["-lc", "\(hermesPath) chat -q \(self.quote(fullPrompt)) --quiet --source pip 2>&1"]
+            process.arguments = ["-lc", command]
+            if let cwd, FileManager.default.fileExists(atPath: cwd, isDirectory: nil) {
+                process.currentDirectoryURL = URL(fileURLWithPath: cwd)
+            }
 
             let out = Pipe()
             let err = Pipe()
@@ -72,8 +148,13 @@ final class HermesChatClient {
                 accumulated += chunk
                 let snapshot = accumulated
                 partialLock.unlock()
-                let update = Self.streamChunk(from: snapshot)
-                DispatchQueue.main.async { onPartial?(update) }
+                if verbose {
+                    let transcript = Self.transcriptDisplayText(from: snapshot)
+                    DispatchQueue.main.async { onRawOutput?(transcript) }
+                } else {
+                    let update = Self.streamChunk(from: snapshot)
+                    DispatchQueue.main.async { onPartial?(update) }
+                }
             }
 
             do {
@@ -87,7 +168,6 @@ final class HermesChatClient {
             process.waitUntilExit()
             out.fileHandleForReading.readabilityHandler = nil
 
-            // Handler may have already consumed stdout; always merge any tail bytes.
             let tailData = out.fileHandleForReading.readDataToEndOfFile()
             let errorData = err.fileHandleForReading.readDataToEndOfFile()
 
@@ -107,7 +187,15 @@ final class HermesChatClient {
             let raw = accumulated
             partialLock.unlock()
 
-            let output = Self.finalDisplayText(from: raw)
+            if let newSession = Self.extractSessionID(from: raw) {
+                self.stateLock.lock()
+                self.sessionID = newSession
+                self.stateLock.unlock()
+            }
+
+            let output = verbose
+                ? Self.transcriptDisplayText(from: raw)
+                : Self.fullDisplayText(from: raw)
 
             DispatchQueue.main.async {
                 completion(.success(output))
@@ -120,10 +208,123 @@ final class HermesChatClient {
         currentProcess = nil
     }
 
-    private static func preparePrompt(for message: String) -> String {
+    // MARK: - Workspace + session helpers
+
+    private static func resolveWorkspaceDirectory(_ path: String?) -> String? {
+        guard let path else { return nil }
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return resolveWorkspaceDirectory(from: [trimmed])
+    }
+
+    private static func resolveWorkspaceDirectory(from paths: [String]) -> String? {
+        for raw in paths {
+            var path = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !path.isEmpty else { continue }
+            if path.hasPrefix("~") {
+                path = NSHomeDirectory() + String(path.dropFirst())
+            }
+            path = (path as NSString).standardizingPath
+            var isDir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir) else { continue }
+            if isDir.boolValue { return path }
+            let parent = (path as NSString).deletingLastPathComponent
+            if !parent.isEmpty, parent != "/", FileManager.default.fileExists(atPath: parent) {
+                return parent
+            }
+        }
+        return nil
+    }
+
+    static func pathsMentioned(in text: String) -> [String] {
+        text.split(whereSeparator: { $0.isWhitespace || ",;".contains($0) })
+            .map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: "'\"")) }
+            .filter { $0.hasPrefix("/") || $0.hasPrefix("~/") }
+    }
+
+    static func extractSessionID(from raw: String) -> String? {
+        let normalized = normalizeTerminalOutput(raw)
+
+        if let regex = try? NSRegularExpression(
+            pattern: #"(?:session_id:|Session:)\s*(\d{8}_\d{6}_[0-9a-f]+)"#,
+            options: [.caseInsensitive]
+        ) {
+            let range = NSRange(normalized.startIndex..., in: normalized)
+            if let match = regex.firstMatch(in: normalized, range: range),
+               let idRange = Range(match.range(at: 1), in: normalized) {
+                return String(normalized[idRange])
+            }
+        }
+
+        if let regex = try? NSRegularExpression(pattern: #"hermes\s+--resume\s+(\d{8}_\d{6}_[0-9a-f]+)"#) {
+            let range = NSRange(normalized.startIndex..., in: normalized)
+            if let match = regex.firstMatch(in: normalized, range: range),
+               let idRange = Range(match.range(at: 1), in: normalized) {
+                return String(normalized[idRange])
+            }
+        }
+
+        let lines = normalized
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+
+        for line in lines.reversed() {
+            let lower = line.lowercased()
+            guard lower.hasPrefix("session_id:") else { continue }
+            let inline = line.dropFirst("session_id:".count).trimmingCharacters(in: .whitespaces)
+            if isSessionValue(inline) { return inline }
+        }
+
+        guard let header = lines.first?.trimmingCharacters(in: .whitespaces),
+              header.lowercased().hasPrefix("session_id:") else { return nil }
+        let inline = header.dropFirst("session_id:".count).trimmingCharacters(in: .whitespaces)
+        if isSessionValue(inline) { return inline }
+        if inline.isEmpty, lines.count > 1 {
+            let value = lines[1].trimmingCharacters(in: .whitespaces)
+            if isSessionValue(value) { return value }
+        }
+        return nil
+    }
+
+    /// Full Hermes CLI transcript for the verbose chat panel (tool traces, boxes, session footer).
+    static func transcriptDisplayText(from raw: String) -> String {
+        normalizeTerminalOutput(raw).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func normalizeTerminalOutput(_ raw: String) -> String {
+        var text = stripANSI(raw)
+        text = text.replacingOccurrences(of: "\r\n", with: "\n")
+        text = text.replacingOccurrences(of: "\r", with: "\n")
+        return text
+    }
+
+    static func stripANSI(_ text: String) -> String {
+        var result = text
+        result = result.replacingOccurrences(
+            of: #"\u{001B}\[[0-9;?]*[ -/]*[@-~]"#,
+            with: "",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"\[(?:\d{1,3})(?:;\d{1,3})*m"#,
+            with: "",
+            options: .regularExpression
+        )
+        return result
+    }
+
+    private static func preparePrompt(for message: String, verbose: Bool) -> String {
+        if verbose {
+            return expandSlashMessage(message)
+        }
         guard HermesSlashQuery.matchesSlashCommand(message) else {
             return "\(spaceAgentPersona)\n\nUser: \(message)"
         }
+        return expandSlashMessage(message)
+    }
+
+    private static func expandSlashMessage(_ message: String) -> String {
+        guard HermesSlashQuery.matchesSlashCommand(message) else { return message }
         let semaphore = DispatchSemaphore(value: 0)
         var expanded = message
         HermesSlashCatalog.shared.expandSlashMessage(message) { result in
@@ -137,20 +338,41 @@ final class HermesChatClient {
         return message
     }
 
+    func localSlashReply(for message: String) -> String? {
+        Self.localSlashResponse(for: message)
+    }
+
     private static func localSlashResponse(for message: String) -> String? {
         let lower = message.lowercased()
         if lower == "/stop" || lower.hasPrefix("/stop ") {
             return "Stopped."
         }
-        if lower == "/help" || lower == "/commands" {
+        if lower == "/help" || lower.hasPrefix("/commands") {
             return HermesSlashCatalog.shared.helpText()
+        }
+        if lower == "/new" || lower.hasPrefix("/new ") || lower == "/reset" {
+            shared.resetSession()
+            return "Started a new Hermes session — prior context cleared."
+        }
+        if lower.hasPrefix("/cwd ") {
+            let path = String(message.dropFirst(5)).trimmingCharacters(in: .whitespacesAndNewlines)
+            if let resolved = resolveWorkspaceDirectory(path) {
+                shared.setWorkingDirectory(resolved)
+                return "Working directory set to \(resolved)."
+            }
+            return "Couldn't find that path."
+        }
+        if lower == "/cwd" {
+            if let cwd = shared.activeWorkingDirectory {
+                return "Working directory: \(cwd)"
+            }
+            return "No working directory set — drop a project folder or mention a path."
         }
         return nil
     }
 
     static let traceMaxCharacters = 72
 
-    /// Latest single-line trace or streaming final reply for the onscreen bubble.
     static func streamChunk(from raw: String) -> HermesStreamChunk? {
         if raw.lowercased().contains("session_id:") {
             let answer = stripSessionPrefix(raw).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -166,7 +388,6 @@ final class HermesChatClient {
         return nil
     }
 
-    /// Parse the most recent Hermes tool/progress line before the final answer.
     static func latestTraceLine(from raw: String) -> String? {
         var body = raw
         if let sessionRange = raw.range(of: "session_id:", options: [.caseInsensitive, .backwards]) {
@@ -244,8 +465,7 @@ final class HermesChatClient {
         return String(oneLine[..<end]) + "…"
     }
 
-    /// Final bubble text after Hermes exits.
-    static func finalDisplayText(from raw: String) -> String {
+    static func fullDisplayText(from raw: String) -> String {
         let answer = stripSessionPrefix(raw).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !answer.isEmpty else {
             if isHermesToolOutput(raw) {
@@ -253,10 +473,15 @@ final class HermesChatClient {
             }
             return ""
         }
-        return compactReply(answer)
+        return answer
     }
 
-    /// Strip code dumps and cap length for the onscreen bubble.
+    static func finalDisplayText(from raw: String) -> String {
+        let full = fullDisplayText(from: raw)
+        guard !full.isEmpty else { return "" }
+        return compactReply(full)
+    }
+
     static func compactReply(_ raw: String) -> String {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return text }
@@ -361,7 +586,6 @@ final class HermesChatClient {
         return joined
     }
 
-    /// Hermes stdout ends with `session_id: <id>\n<final reply>` — keep only the reply.
     private static func stripSessionPrefix(_ output: String) -> String {
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
@@ -376,7 +600,6 @@ final class HermesChatClient {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        // Legacy: session header is the first line.
         while let first = lines.first?.trimmingCharacters(in: .whitespaces), first.isEmpty {
             lines.removeFirst()
         }
@@ -424,5 +647,147 @@ final class HermesChatClient {
     private func quote(_ s: String) -> String {
         let escaped = s.replacingOccurrences(of: "'", with: "'\\''")
         return "'\(escaped)'"
+    }
+}
+
+// MARK: - Verbose transcript parsing (full chat panel)
+
+enum HermesTranscriptBlock: Equatable, Identifiable {
+    case status(String)
+    case toolTrace(String)
+    case reply(String)
+    case sessionMeta(session: String, duration: String?, messages: String?)
+
+    var id: String {
+        switch self {
+        case .status(let text): return "status-\(text)"
+        case .toolTrace(let text): return "trace-\(text)"
+        case .reply(let text): return "reply-\(text.hashValue)"
+        case .sessionMeta(let session, let duration, let messages):
+            return "meta-\(session)-\(duration ?? "")-\(messages ?? "")"
+        }
+    }
+}
+
+enum HermesTranscriptParser {
+    private static let boxChars = CharacterSet(charactersIn: "─━│┌┐└┘╭╮╰╯├┤┬┴┼═║╔╗╚╝╠╣╦╩╬ ")
+
+    static func parse(_ raw: String) -> [HermesTranscriptBlock] {
+        let text = HermesChatClient.normalizeTerminalOutput(raw)
+        guard !text.isEmpty else { return [] }
+
+        let lines = text.components(separatedBy: "\n")
+        var blocks: [HermesTranscriptBlock] = []
+        var replyLines: [String] = []
+        var inReply = false
+        var sessionId: String?
+        var duration: String?
+        var messageSummary: String?
+
+        func flushReply() {
+            let body = replyLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            replyLines = []
+            inReply = false
+            guard !body.isEmpty else { return }
+            blocks.append(.reply(body))
+        }
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { continue }
+
+            if trimmed.hasPrefix("Session:") {
+                flushReply()
+                sessionId = valueAfterColon(trimmed)
+                continue
+            }
+            if trimmed.hasPrefix("Duration:") {
+                duration = valueAfterColon(trimmed)
+                continue
+            }
+            if trimmed.hasPrefix("Messages:") {
+                messageSummary = valueAfterColon(trimmed)
+                continue
+            }
+            if trimmed.hasPrefix("Resume this session")
+                || trimmed.hasPrefix("hermes --resume")
+                || trimmed.hasPrefix("Query:") {
+                continue
+            }
+            if trimmed.hasPrefix("Initializing") {
+                flushReply()
+                blocks.append(.status(trimmed))
+                continue
+            }
+            if isHermesBoxTop(trimmed) {
+                flushReply()
+                inReply = true
+                continue
+            }
+            if isHermesBoxBottom(trimmed) {
+                flushReply()
+                continue
+            }
+            if isSeparatorOnly(trimmed) { continue }
+
+            if isToolTrace(line) {
+                flushReply()
+                let trace = cleanToolTrace(line)
+                if !trace.isEmpty { blocks.append(.toolTrace(trace)) }
+                continue
+            }
+
+            if inReply {
+                replyLines.append(unindent(line))
+                continue
+            }
+        }
+
+        if inReply, !replyLines.isEmpty {
+            let body = replyLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !body.isEmpty { blocks.append(.reply(body)) }
+        }
+
+        if let sessionId {
+            blocks.append(.sessionMeta(session: sessionId, duration: duration, messages: messageSummary))
+        }
+
+        return blocks
+    }
+
+    private static func valueAfterColon(_ line: String) -> String {
+        guard let idx = line.firstIndex(of: ":") else { return line }
+        return String(line[line.index(after: idx)...]).trimmingCharacters(in: .whitespaces)
+    }
+
+    private static func isHermesBoxTop(_ line: String) -> Bool {
+        line.contains("╭") && line.localizedCaseInsensitiveContains("hermes")
+    }
+
+    private static func isHermesBoxBottom(_ line: String) -> Bool {
+        line.hasPrefix("╰")
+    }
+
+    private static func isSeparatorOnly(_ line: String) -> Bool {
+        guard !line.isEmpty else { return true }
+        return line.unicodeScalars.allSatisfy { boxChars.contains($0) }
+    }
+
+    private static func isToolTrace(_ line: String) -> Bool {
+        line.contains("┊")
+    }
+
+    private static func cleanToolTrace(_ line: String) -> String {
+        var text = line
+            .replacingOccurrences(of: "┊", with: "")
+            .replacingOccurrences(of: "│", with: "")
+            .trimmingCharacters(in: .whitespaces)
+        text = text.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+        return text
+    }
+
+    private static func unindent(_ line: String) -> String {
+        if line.hasPrefix("    ") { return String(line.dropFirst(4)) }
+        return line.trimmingCharacters(in: .whitespaces)
     }
 }

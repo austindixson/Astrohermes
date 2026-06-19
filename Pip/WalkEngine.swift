@@ -51,6 +51,7 @@ struct Pose: Equatable {
     var chatTraceActive = false        // bubble shows single-line progress, not final reply
     var uiBubblePhase: SpaceAgentBubblePhase = .visible
     var chatMessages: [ChatBubbleMessage] = []
+    var chatLiveTranscript: String?    // streaming Hermes stdout in full chat mode
     var chatLoading = false
     var chatStatusText: String?        // shown as composer placeholder while executing
     var chatBubbleBelowHead = false    // bubble placement: below head when near top of screen
@@ -64,6 +65,8 @@ struct ChatBubbleMessage: Equatable, Identifiable {
     let id = UUID()
     let text: String
     let isUser: Bool
+    /// Full Hermes TUI transcript (tool traces, diffs, boxed replies).
+    var isHermesTranscript = false
 }
 
 @Observable
@@ -721,12 +724,14 @@ final class WalkEngine: NSObject {
             pose.chatDisplayMode = .compact
         } else {
             pose.chatMessages = []
+            pose.chatLiveTranscript = nil
             pose.compactAssistantText = nil
             pose.chatStatusText = nil
             pose.chatTraceActive = false
             pose.chatLoading = false
             pose.chatDisplayMode = .compact
             pose.uiBubblePhase = .visible
+            HermesChatClient.shared.resetSession()
         }
         model.pose = pose
         NotificationCenter.default.post(name: .pipChatResize, object: newState)
@@ -746,7 +751,7 @@ final class WalkEngine: NSObject {
         var pose = model.pose
         pose.chatDisplayMode = .compact
         if let last = pose.chatMessages.last(where: { !$0.isUser }) {
-            pose.compactAssistantText = last.text
+            pose.compactAssistantText = HermesChatClient.compactReply(last.text)
             pose.chatTraceActive = false
             pose.uiBubblePhase = .visible
         }
@@ -784,6 +789,7 @@ final class WalkEngine: NSObject {
         pose.chatLoading = false
         pose.chatStatusText = nil
         pose.chatTraceActive = false
+        pose.chatLiveTranscript = nil
         model.pose = pose
     }
 
@@ -808,49 +814,87 @@ final class WalkEngine: NSObject {
             NotificationCenter.default.post(name: .pipChatResize, object: false)
             return
         }
+        if lower == "/new" || lower.hasPrefix("/new ") || lower == "/reset"
+            || lower == "/cwd" || lower.hasPrefix("/cwd ") {
+            var pose = model.pose
+            pose.chatMessages.append(ChatBubbleMessage(text: trimmed, isUser: true))
+            let reply = HermesChatClient.shared.localSlashReply(for: trimmed) ?? "Done."
+            pose.chatMessages.append(ChatBubbleMessage(text: reply, isUser: false))
+            if pose.chatDisplayMode == .compact {
+                pose.compactAssistantText = HermesChatClient.compactReply(reply)
+                pose.uiBubblePhase = .visible
+            }
+            model.pose = pose
+            NotificationCenter.default.post(name: .pipChatResize, object: false)
+            return
+        }
         var pose = model.pose
+        let verbose = pose.chatDisplayMode == .full
         pose.chatMessages.append(ChatBubbleMessage(text: trimmed, isUser: true))
         pose.chatLoading = true
-        pose.chatStatusText = "Thinking…"
+        pose.chatStatusText = verbose ? "Hermes running…" : "Thinking…"
         pose.compactAssistantText = "Thinking…"
         pose.chatTraceActive = true
+        pose.chatLiveTranscript = verbose ? "" : nil
         pose.uiBubblePhase = .visible
         model.pose = pose
         NotificationCenter.default.post(name: .pipChatResize, object: false)
 
-        HermesChatClient.shared.send(trimmed, onPartial: { [weak self] chunk in
-            guard let self, let chunk else { return }
-            var pose = self.model.pose
-            guard pose.chatOpen, pose.chatDisplayMode == .compact else { return }
-            pose.chatTraceActive = chunk.isTrace
-            pose.compactAssistantText = chunk.text
-            pose.chatStatusText = chunk.isTrace ? "Working…" : "Writing reply…"
-            pose.uiBubblePhase = .visible
-            self.model.pose = pose
-            NotificationCenter.default.post(name: .pipChatResize, object: false)
-        }) { [weak self] result in
+        HermesChatClient.shared.send(
+            trimmed,
+            verbose: verbose,
+            onRawOutput: { [weak self] raw in
+                guard let self else { return }
+                var pose = self.model.pose
+                guard pose.chatOpen, pose.chatDisplayMode == .full else { return }
+                pose.chatLiveTranscript = raw
+                pose.chatStatusText = "Hermes running…"
+                self.model.pose = pose
+            },
+            onPartial: { [weak self] chunk in
+                guard let self, let chunk else { return }
+                var pose = self.model.pose
+                guard pose.chatOpen, pose.chatDisplayMode == .compact else { return }
+                pose.chatTraceActive = chunk.isTrace
+                pose.compactAssistantText = chunk.text
+                pose.chatStatusText = chunk.isTrace ? "Working…" : "Writing reply…"
+                pose.uiBubblePhase = .visible
+                self.model.pose = pose
+                NotificationCenter.default.post(name: .pipChatResize, object: false)
+            }
+        ) { [weak self] result in
             guard let self else { return }
             var pose = self.model.pose
             pose.chatLoading = false
             pose.chatStatusText = nil
             pose.chatTraceActive = false
+            pose.chatLiveTranscript = nil
             switch result {
             case .success(let response):
-                let clean = response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ? ""
-                    : response
-                if !clean.isEmpty {
-                    pose.chatMessages.append(ChatBubbleMessage(text: clean, isUser: false))
-                    if pose.chatDisplayMode == .compact {
-                        pose.compactAssistantText = clean
-                        pose.uiBubblePhase = .visible
+                let full = response.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !full.isEmpty {
+                    if verbose {
+                        pose.chatMessages.append(
+                            ChatBubbleMessage(text: full, isUser: false, isHermesTranscript: true)
+                        )
+                    } else {
+                        let compact = HermesChatClient.compactReply(full)
+                        pose.chatMessages.append(ChatBubbleMessage(text: full, isUser: false))
+                        if pose.chatDisplayMode == .compact, !compact.isEmpty {
+                            pose.compactAssistantText = compact
+                            pose.uiBubblePhase = .visible
+                        }
                     }
                 }
-            case .failure:
-                let err = "oops — hermes didn't answer"
-                pose.chatMessages.append(ChatBubbleMessage(text: err, isUser: false))
+            case .failure(let error):
+                let err = verbose
+                    ? "Hermes error:\n\(error.localizedDescription)"
+                    : "oops — hermes didn't answer"
+                pose.chatMessages.append(
+                    ChatBubbleMessage(text: err, isUser: false, isHermesTranscript: verbose)
+                )
                 if pose.chatDisplayMode == .compact {
-                    pose.compactAssistantText = err
+                    pose.compactAssistantText = "oops — hermes didn't answer"
                     pose.uiBubblePhase = .visible
                 }
             }
@@ -1020,6 +1064,7 @@ final class WalkEngine: NSObject {
         pose.chatTraceActive = model.pose.chatTraceActive
         pose.uiBubblePhase = model.pose.uiBubblePhase
         pose.chatMessages = model.pose.chatMessages
+        pose.chatLiveTranscript = model.pose.chatLiveTranscript
         pose.chatLoading = model.pose.chatLoading
         pose.chatStatusText = model.pose.chatStatusText
 

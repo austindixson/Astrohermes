@@ -65,6 +65,7 @@ final class MascotContainerView: NSView {
         guard controller?.isChatOpen == true else { return false }
         let paths = Self.filePaths(from: sender)
         guard !paths.isEmpty else { return false }
+        HermesChatClient.shared.adoptWorkspace(paths: paths)
         NotificationCenter.default.post(name: .pipFileDrop, object: paths)
         controller?.activateComposer()
         return true
@@ -317,10 +318,10 @@ final class MascotController: NSObject {
         tooltipTimer = t
         refreshTooltip()
 
-        // Fume whenever the cursor hovers the ChatGPT icon in the Dock. This
-        // reads the Dock's Accessibility tree, so prompt for permission once.
-        let axOpts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(axOpts)
+        // Fume whenever the cursor hovers the ChatGPT icon in the Dock. Requires
+        // Accessibility — check silently; never auto-prompt on launch (rebuilt or
+        // DerivedData binaries often differ from the app entry in System Settings).
+        let trusted = AXIsProcessTrusted()
         let rt = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
             self?.pollRivalHover()
         }
@@ -400,6 +401,14 @@ final class MascotController: NSObject {
                                symbol: "chart.bar.fill")
         badge.state = engine.showBadgePersistent ? .on : .off
         menu.addItem(badge)
+
+        if !AXIsProcessTrusted() {
+            menu.addItem(actionItem(
+                "Enable Dock Rival Detection…",
+                action: #selector(requestAccessibilityAccess),
+                symbol: "accessibility"
+            ))
+        }
 
         menu.addItem(.separator())
         menu.addItem(actionItem("Refresh Usage Now", action: #selector(refreshNow),
@@ -492,6 +501,12 @@ final class MascotController: NSObject {
 
     @objc private func goHome() {
         engine.goHome()
+    }
+
+    /// User-initiated only — avoids the system prompt on every launch.
+    @objc private func requestAccessibilityAccess() {
+        let axOpts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(axOpts)
     }
 
     // MARK: - Rival detection (cursor over the ChatGPT Dock icon → Pip gets mad)

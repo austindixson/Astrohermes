@@ -363,6 +363,7 @@ struct SpaceAgentShellView: View {
         SpaceAgentOnscreenChat(
             mode: pose.chatDisplayMode,
             messages: pose.chatMessages,
+            liveTranscript: pose.chatLiveTranscript,
             isLoading: pose.chatLoading,
             statusText: pose.chatStatusText,
             compactAssistantText: pose.compactAssistantText,
