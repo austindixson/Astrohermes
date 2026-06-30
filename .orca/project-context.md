@@ -5,7 +5,7 @@
 Xcode organized in 5 layers: Shell & View → Canvas System → Orchestrator → Agent Runtime → Utilities.
 
 ## Tech stack
-**Languages:** PNG, Swift, Python, WEBP
+**Languages:** PNG, Swift, WEBP, Python
 **Platforms:** macOS
 
 **Hierarchy** (presentation → core):
@@ -22,6 +22,20 @@ Xcode organized in 5 layers: Shell & View → Canvas System → Orchestrator →
 - **Agent Runtime** — PTY, CLI spawn · AgentExecutor, PTYSession
 - **Utilities** — Persistence, Git, File I/O · PersistenceStore, GitIntegration
 
+## Architecture
+```mermaid
+flowchart TB
+  L1["1. Shell & View\nSwiftUI, AppKit"]
+  L2["2. Canvas System\nSwiftUI, Spatial layout"]
+  L3["3. Orchestrator\nLLM tool loop, Command dispatch"]
+  L4["4. Agent Runtime\nPTY, CLI spawn"]
+  L5["5. Utilities\nPersistence, Git"]
+  L1 --> L2
+  L2 --> L3
+  L3 --> L4
+  L4 --> L5
+```
+
 ## Infrastructure
 - **Platforms:** macOS
 - **Scripts:** `scripts/` test & automation harness
@@ -35,4 +49,4 @@ Xcode organized in 5 layers: Shell & View → Canvas System → Orchestrator →
 6. **Ship** — git commit, preview in browser tile, iterate
 
 _Workspace:_ `/Users/ghost/Desktop/Projects/pip-mascot`
-_Analyzed:_ 2026-06-30T16:39:28Z
+_Analyzed:_ 2026-06-30T18:37:12Z
