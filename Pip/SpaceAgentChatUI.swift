@@ -510,6 +510,33 @@ struct SpaceAgentCompactLoadingBubble: View {
     }
 }
 
+// MARK: - Pasteboard (plain text from string, RTF, HTML, or NSString)
+
+private enum SpaceAgentPasteboard {
+    static func plainText(from pasteboard: NSPasteboard = .general) -> String? {
+        if let direct = pasteboard.string(forType: .string)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !direct.isEmpty {
+            return pasteboard.string(forType: .string)
+        }
+        if let objects = pasteboard.readObjects(forClasses: [NSString.self], options: nil) as? [String],
+           let first = objects.first(where: { !$0.isEmpty }) {
+            return first
+        }
+        if let rtf = pasteboard.data(forType: .rtf),
+           let attributed = NSAttributedString(rtf: rtf, documentAttributes: nil),
+           !attributed.string.isEmpty {
+            return attributed.string
+        }
+        if let html = pasteboard.data(forType: .html),
+           let attributed = NSAttributedString(html: html, documentAttributes: nil),
+           !attributed.string.isEmpty {
+            return attributed.string
+        }
+        return nil
+    }
+}
+
 // MARK: - Composer caret (avoid select-all after file drop)
 
 private enum SpaceAgentComposerSelection {
@@ -567,9 +594,8 @@ private enum SpaceAgentFileDrop {
 }
 
 private struct SpaceAgentFileDropTarget: ViewModifier {
-    @Binding var text: String
     @Binding var isTargeted: Bool
-    var onPathsAppended: (() -> Void)?
+    let onPathsDropped: ([String]) -> Void
 
     func body(content: Content) -> some View {
         content
@@ -586,8 +612,7 @@ private struct SpaceAgentFileDropTarget: ViewModifier {
                     let paths = await SpaceAgentFileDrop.paths(from: providers)
                     await MainActor.run {
                         guard !paths.isEmpty else { return }
-                        SpaceAgentFileDrop.append(paths: paths, to: &text)
-                        onPathsAppended?()
+                        onPathsDropped(paths)
                     }
                 }
                 return true
@@ -597,11 +622,10 @@ private struct SpaceAgentFileDropTarget: ViewModifier {
 
 private extension View {
     func spaceAgentFileDrop(
-        text: Binding<String>,
         isTargeted: Binding<Bool>,
-        onPathsAppended: (() -> Void)? = nil
+        onPathsDropped: @escaping ([String]) -> Void
     ) -> some View {
-        modifier(SpaceAgentFileDropTarget(text: text, isTargeted: isTargeted, onPathsAppended: onPathsAppended))
+        modifier(SpaceAgentFileDropTarget(isTargeted: isTargeted, onPathsDropped: onPathsDropped))
     }
 }
 
@@ -724,6 +748,18 @@ final class SpaceAgentComposerNSTextView: NSTextView {
         return resigned
     }
 
+    override func paste(_ sender: Any?) {
+        if composerContainer?.pasteFromPasteboard() == true { return }
+        super.paste(sender)
+        composerContainer?.syncTextToSwiftUI()
+        composerContainer?.refreshInsertionPoint()
+    }
+
+    override func insertText(_ insertString: Any, replacementRange: NSRange) {
+        super.insertText(insertString, replacementRange: replacementRange)
+        composerContainer?.applyComposerTextColor()
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.modifierFlags.contains(.command),
               let key = event.charactersIgnoringModifiers?.lowercased() else {
@@ -756,6 +792,7 @@ final class SpaceAgentComposerTextContainer: NSView {
     var onActivate: (() -> Void)?
     var onHeightChange: ((CGFloat) -> Void)?
     var onExpandedLayoutChange: ((Bool) -> Void)?
+    var onTextChange: ((String) -> Void)?
 
     private var usesExpandedLayout = false
     private var isRecalculatingHeight = false
@@ -766,11 +803,13 @@ final class SpaceAgentComposerTextContainer: NSView {
     private var windowKeyObserver: NSObjectProtocol?
 
     static func pasteIntoActiveComposer() -> Bool {
-        guard let composer = activeComposer else { return false }
-        NSApp.activate(ignoringOtherApps: true)
-        composer.window?.makeKey()
-        composer.window?.makeFirstResponder(composer.textView)
-        return composer.pasteFromPasteboard()
+        if let composer = activeComposer, composer.pasteFromPasteboard() {
+            return true
+        }
+        guard let paste = SpaceAgentPasteboard.plainText() else { return false }
+        NotificationCenter.default.post(name: .pipComposerPaste, object: paste)
+        NotificationCenter.default.post(name: .pipComposerFocus, object: nil)
+        return true
     }
 
     static func copyFromActiveComposer() -> Bool {
@@ -1081,11 +1120,115 @@ final class SpaceAgentComposerTextContainer: NSView {
         textView.needsDisplay = true
     }
 
+    func applyComposerTextColor() {
+        let font = textView.font ?? NSFont.systemFont(ofSize: fontSize)
+        let color = NSColor.white.withAlphaComponent(0.92)
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
+        textView.textColor = color
+        textView.insertionPointColor = .white
+        textView.typingAttributes = attrs
+        textView.selectedTextAttributes = attrs
+        textView.markedTextAttributes = attrs
+        let range = NSRange(location: 0, length: (textView.string as NSString).length)
+        if range.length > 0 {
+            textView.textStorage?.setAttributes(attrs, range: range)
+        }
+        textView.needsDisplay = true
+    }
+
+    func syncTextToSwiftUI() {
+        isEditing = true
+        applyComposerTextColor()
+        let text = textView.string
+        onTextChange?(text)
+        NotificationCenter.default.post(name: .pipComposerTextChanged, object: text)
+        updatePlaceholderVisibility()
+        _ = recalculateHeight()
+    }
+
+    func clearText() {
+        guard !textView.string.isEmpty else {
+            updatePlaceholderVisibility()
+            return
+        }
+        textView.string = ""
+        applyComposerTextColor()
+        updatePlaceholderVisibility()
+        _ = recalculateHeight()
+    }
+
+    func appendExternalText(_ chunk: String) {
+        let trimmed = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        Self.activeComposer = self
+        onActivate?()
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
+        window?.makeFirstResponder(textView)
+        isEditing = true
+        updatePlaceholderVisibility()
+
+        let range = textView.selectedRange()
+        let base = textView.string as NSString
+        let prefix = base.substring(to: range.location)
+        let separator: String
+        if prefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            separator = ""
+        } else if prefix.hasSuffix(" ") {
+            separator = ""
+        } else {
+            separator = " "
+        }
+        let insertion = separator + trimmed
+        if textView.shouldChangeText(in: range, replacementString: insertion) {
+            textView.undoManager?.beginUndoGrouping()
+            textView.insertText(insertion, replacementRange: range)
+            textView.undoManager?.endUndoGrouping()
+            textView.didChangeText()
+        }
+        let caret = range.location + (insertion as NSString).length
+        textView.setSelectedRange(NSRange(location: caret, length: 0))
+        textView.scrollRangeToVisible(NSRange(location: caret, length: 0))
+        syncTextToSwiftUI()
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.textView.updateInsertionPointStateAndRestartTimer(true)
+            self.refreshInsertionPoint()
+        }
+    }
+
     @discardableResult
     func pasteFromPasteboard() -> Bool {
-        guard let paste = NSPasteboard.general.string(forType: .string) else { return false }
-        textView.insertText(paste, replacementRange: textView.selectedRange())
-        textDidChange()
+        guard let paste = SpaceAgentPasteboard.plainText() else { return false }
+        Self.activeComposer = self
+        onActivate?()
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
+        window?.makeFirstResponder(textView)
+        isEditing = true
+        updatePlaceholderVisibility()
+
+        let range = textView.selectedRange()
+        if textView.shouldChangeText(in: range, replacementString: paste) {
+            textView.undoManager?.beginUndoGrouping()
+            textView.insertText(paste, replacementRange: range)
+            textView.undoManager?.endUndoGrouping()
+            textView.didChangeText()
+        }
+        let caret = range.location + (paste as NSString).length
+        textView.setSelectedRange(NSRange(location: caret, length: 0))
+        textView.scrollRangeToVisible(NSRange(location: caret, length: 0))
+        syncTextToSwiftUI()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.window?.makeFirstResponder(self.textView)
+            self.textView.setSelectedRange(NSRange(location: caret, length: 0))
+            self.textView.scrollRangeToVisible(NSRange(location: caret, length: 0))
+            self.isEditing = true
+            self.textView.updateInsertionPointStateAndRestartTimer(true)
+            self.refreshInsertionPoint()
+        }
         return true
     }
 
@@ -1103,18 +1246,13 @@ final class SpaceAgentComposerTextContainer: NSView {
     func cutSelection() -> Bool {
         guard copySelection() else { return false }
         textView.insertText("", replacementRange: textView.selectedRange())
-        textDidChange()
+        syncTextToSwiftUI()
         return true
     }
 
     func selectAllText() {
         focusTextView()
         textView.selectAll(nil)
-    }
-
-    private func textDidChange() {
-        updatePlaceholderVisibility()
-        _ = recalculateHeight()
     }
 
     func applyStyle(fontSize: CGFloat) {
@@ -1128,6 +1266,7 @@ final class SpaceAgentComposerTextContainer: NSView {
         ]
         placeholderLabel.font = font
         placeholderLabel.textColor = NSColor.white.withAlphaComponent(0.45)
+        applyComposerTextColor()
         _ = recalculateHeight()
     }
 
@@ -1266,11 +1405,15 @@ private struct SpaceAgentComposerTextView: NSViewRepresentable {
         container.textView.delegate = context.coordinator
         container.onActivate = onActivate
         container.onExpandedLayoutChange = onExpandedLayoutChange
+        container.onTextChange = { [weak coordinator = context.coordinator] newText in
+            coordinator?.syncText(newText)
+        }
         container.onHeightChange = { [self] height in
             handleHeightChange(height)
         }
         container.textView.string = text
         container.textView.slashController = slashController
+        container.applyComposerTextColor()
         container.setContentHuggingPriority(.defaultLow, for: .horizontal)
         container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         SpaceAgentComposerTextContainer.activeComposer = container
@@ -1285,6 +1428,7 @@ private struct SpaceAgentComposerTextView: NSViewRepresentable {
 
     func updateNSView(_ container: SpaceAgentComposerTextContainer, context: Context) {
         context.coordinator.parent = self
+        SpaceAgentComposerTextContainer.activeComposer = container
         container.maxTextHeight = maxTextHeight
         container.minFieldHeight = minFieldHeight
         container.measurementWidth = measurementWidth
@@ -1296,15 +1440,27 @@ private struct SpaceAgentComposerTextView: NSViewRepresentable {
         container.setPlaceholder(placeholder)
         container.onActivate = onActivate
         container.onExpandedLayoutChange = onExpandedLayoutChange
+        container.onTextChange = { [weak coordinator = context.coordinator] newText in
+            coordinator?.syncText(newText)
+        }
         container.onHeightChange = { [self] height in
             handleHeightChange(height)
         }
 
         container.textView.slashController = slashController
 
-        if !context.coordinator.isUpdating, container.textView.string != text {
-            container.textView.string = text
-            container.updatePlaceholderVisibility()
+        let appKitText = container.textView.string
+        let composerEngaged = container.isEditing || container.isTextViewFocused()
+        if !context.coordinator.isUpdating, appKitText != text {
+            if text.isEmpty {
+                context.coordinator.isUpdating = true
+                container.clearText()
+                context.coordinator.isUpdating = false
+            } else if !composerEngaged {
+                container.textView.string = text
+                container.applyComposerTextColor()
+                container.updatePlaceholderVisibility()
+            }
         }
 
         if focus.wrappedValue, !container.isTextViewFocused() {
@@ -1328,16 +1484,32 @@ private struct SpaceAgentComposerTextView: NSViewRepresentable {
             self.parent = parent
         }
 
+        func syncText(_ newText: String) {
+            guard !isUpdating else { return }
+            isUpdating = true
+            defer { isUpdating = false }
+            parent.text = newText
+            NotificationCenter.default.post(name: .pipComposerTextChanged, object: newText)
+            parent.slashController.refresh(
+                text: newText,
+                caret: SpaceAgentComposerTextContainer.activeComposer?.textView.selectedRange().location ?? newText.count
+            )
+        }
+
         func textDidChange(_ notification: Notification) {
             guard let view = notification.object as? NSTextView else { return }
-            isUpdating = true
-            parent.text = view.string
-            isUpdating = false
-            parent.slashController.refresh(text: view.string, caret: view.selectedRange().location)
-            if let container = (view as? SpaceAgentComposerNSTextView)?.composerContainer {
+            if let container = (view as? SpaceAgentComposerNSTextView)?.composerContainer
+                ?? SpaceAgentComposerTextContainer.activeComposer {
+                container.isEditing = true
+                container.applyComposerTextColor()
                 container.updatePlaceholderVisibility()
                 _ = container.recalculateHeight()
             }
+            syncText(
+                (view as? SpaceAgentComposerNSTextView)?.string
+                    ?? SpaceAgentComposerTextContainer.activeComposer?.textView.string
+                    ?? view.string
+            )
         }
 
         func textDidBeginEditing(_ notification: Notification) {
@@ -1751,7 +1923,6 @@ struct SpaceAgentOnscreenChat: View {
     @State private var inputText = ""
     @State private var composerHeight = SpaceAgentChatTokens.composerRowHeightCompact
     @FocusState private var isFocused: Bool
-    @State private var panelExpanded = false
     @State private var fileDropTargeted = false
 
     var body: some View {
@@ -1762,13 +1933,12 @@ struct SpaceAgentOnscreenChat: View {
                 fullPanel
             }
         }
-        .animation(.timingCurve(0.2, 0.9, 0.25, 1, duration: SpaceAgentChatTokens.modeTransition), value: mode)
+        .animation(isLoading ? nil : .timingCurve(0.2, 0.9, 0.25, 1, duration: SpaceAgentChatTokens.modeTransition), value: mode)
+        .animation(nil, value: liveTranscript)
+        .animation(nil, value: isLoading)
         .onAppear {
             isFocused = true
             postComposerHeight()
-            withAnimation(.timingCurve(0.2, 0.9, 0.25, 1, duration: SpaceAgentChatTokens.modeTransition)) {
-                panelExpanded = true
-            }
         }
         .onChange(of: mode) { _, newMode in
             composerHeight = newMode == .compact
@@ -1778,7 +1948,14 @@ struct SpaceAgentOnscreenChat: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .pipFileDrop)) { note in
             guard let paths = note.object as? [String] else { return }
-            acceptDroppedFiles(paths)
+            applyDroppedFilePaths(paths)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .pipComposerPaste)) { note in
+            guard let paste = note.object as? String, !paste.isEmpty else { return }
+            appendComposerPaste(paste)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .pipComposerFocus)) { _ in
+            activateComposer()
         }
     }
 
@@ -1815,9 +1992,7 @@ struct SpaceAgentOnscreenChat: View {
             }
             .frame(width: SpaceAgentChatTokens.compactPanelWidth)
         }
-        .scaleEffect(panelExpanded ? 1 : 0.94)
-        .opacity(panelExpanded ? 1 : 0)
-        .spaceAgentFileDrop(text: $inputText, isTargeted: $fileDropTargeted, onPathsAppended: afterFilePathsAppended)
+        .spaceAgentFileDrop(isTargeted: $fileDropTargeted, onPathsDropped: applyDroppedFilePaths)
     }
 
     private var fullPanel: some View {
@@ -1846,15 +2021,26 @@ struct SpaceAgentOnscreenChat: View {
             }
         }
         .frame(width: SpaceAgentChatTokens.panelWidth)
-        .scaleEffect(panelExpanded ? 1 : 0.94)
-        .opacity(panelExpanded ? 1 : 0)
-        .spaceAgentFileDrop(text: $inputText, isTargeted: $fileDropTargeted, onPathsAppended: afterFilePathsAppended)
+        .spaceAgentFileDrop(isTargeted: $fileDropTargeted, onPathsDropped: applyDroppedFilePaths)
     }
 
-    private func acceptDroppedFiles(_ paths: [String]) {
-        HermesChatClient.shared.adoptWorkspace(paths: paths)
-        SpaceAgentFileDrop.append(paths: paths, to: &inputText)
-        afterFilePathsAppended()
+    private func applyDroppedFilePaths(_ paths: [String]) {
+        let incoming = paths
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !incoming.isEmpty else { return }
+
+        HermesChatClient.shared.adoptWorkspace(paths: incoming)
+        let chunk = incoming.joined(separator: " ")
+
+        DispatchQueue.main.async { [self] in
+            if let composer = SpaceAgentComposerTextContainer.activeComposer {
+                composer.appendExternalText(chunk)
+            } else {
+                SpaceAgentFileDrop.append(paths: incoming, to: &inputText)
+            }
+            afterFilePathsAppended()
+        }
     }
 
     private func activateComposer() {
@@ -1872,40 +2058,91 @@ struct SpaceAgentOnscreenChat: View {
         }
     }
 
+    private func appendComposerPaste(_ paste: String) {
+        activateComposer()
+        DispatchQueue.main.async { [self] in
+            guard let composer = SpaceAgentComposerTextContainer.activeComposer else {
+                if inputText.isEmpty {
+                    inputText = paste
+                } else {
+                    inputText += paste
+                }
+                return
+            }
+            composer.onActivate?()
+            NSApp.activate(ignoringOtherApps: true)
+            composer.window?.makeKeyAndOrderFront(nil)
+            composer.window?.makeFirstResponder(composer.textView)
+            let range = composer.textView.selectedRange()
+            if composer.textView.shouldChangeText(in: range, replacementString: paste) {
+                composer.textView.insertText(paste, replacementRange: range)
+                composer.textView.didChangeText()
+            }
+            let caret = range.location + (paste as NSString).length
+            composer.textView.setSelectedRange(NSRange(location: caret, length: 0))
+            composer.textView.scrollRangeToVisible(NSRange(location: caret, length: 0))
+            composer.syncTextToSwiftUI()
+            composer.refreshInsertionPoint()
+        }
+    }
+
+    private var hasLiveTranscript: Bool {
+        !(liveTranscript?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
     private var historyList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: SpaceAgentChatTokens.threadGap) {
+                VStack(spacing: SpaceAgentChatTokens.threadGap) {
                     ForEach(messages) { msg in
-                        SpaceAgentMessageRow(message: msg).id(msg.id)
+                        SpaceAgentMessageRow(
+                            message: msg,
+                            animateEntry: mode != .full && !isLoading
+                        )
+                        .id(msg.id)
                     }
-                    if let liveTranscript, !liveTranscript.isEmpty {
-                        SpaceAgentHermesLiveTranscriptRow(text: liveTranscript)
-                            .id("live-transcript")
-                    } else if isLoading, mode == .full {
-                        SpaceAgentHermesLiveTranscriptRow(text: "Initializing agent…")
-                            .id("loading")
-                    } else if isLoading {
+                    if isLoading {
                         SpaceAgentTypingIndicator().id("loading")
                     }
                     Color.clear.frame(height: 4).id("bottom")
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
+                .transaction { $0.animation = nil }
             }
             .frame(minHeight: SpaceAgentChatTokens.historyMinHeight,
                    idealHeight: SpaceAgentChatTokens.historyIdealHeight,
                    maxHeight: SpaceAgentChatTokens.historyMaxHeight)
             .onChange(of: messages.count) { _, _ in
-                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
+                scrollHistoryToBottom(proxy, animated: !isLoading)
             }
             .onChange(of: liveTranscript) { _, _ in
-                withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo("bottom", anchor: .bottom) }
+                scrollHistoryToBottom(proxy, animated: false)
             }
             .onChange(of: isLoading) { _, loading in
                 if loading {
-                    withAnimation { proxy.scrollTo(mode == .full ? "live-transcript" : "loading", anchor: .bottom) }
+                    scrollHistoryToBottom(proxy, anchorID: "loading", animated: false)
                 }
+            }
+        }
+        .animation(nil, value: liveTranscript)
+        .animation(nil, value: isLoading)
+    }
+
+    private func scrollHistoryToBottom(
+        _ proxy: ScrollViewProxy,
+        anchorID: String = "bottom",
+        animated: Bool = true
+    ) {
+        if animated {
+            withAnimation(.easeOut(duration: 0.12)) {
+                proxy.scrollTo(anchorID, anchor: .bottom)
+            }
+        } else {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                proxy.scrollTo(anchorID, anchor: .bottom)
             }
         }
     }
@@ -1919,6 +2156,7 @@ struct SpaceAgentOnscreenChat: View {
         guard canSend else { return }
         onSend(text)
         inputText = ""
+        SpaceAgentComposerTextContainer.activeComposer?.clearText()
         composerHeight = mode == .compact
             ? SpaceAgentChatTokens.composerRowHeightCompact
             : SpaceAgentChatTokens.composerMinHeight
@@ -2037,67 +2275,65 @@ private struct SpaceAgentHermesReplyBody: View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 switch block {
-                case .prose(let copy):
+                case .paragraph(let copy):
                     Text(copy)
                         .font(.system(size: 14, design: .rounded))
                         .foregroundStyle(SpaceAgentHermesTheme.prose)
+                        .lineSpacing(3)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 case .code(let language, let content):
                     SpaceAgentCodeBlockView(language: language, content: content)
+                case .diff(let content):
+                    SpaceAgentDiffBlockView(content: content)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private enum Block: Equatable {
-        case prose(String)
-        case code(language: String?, content: String)
-    }
-
-    private var blocks: [Block] {
-        var result: [Block] = []
-        var remainder = text[...]
-        while !remainder.isEmpty {
-            if let fence = remainder.range(of: "```") {
-                let before = String(remainder[..<fence.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-                if !before.isEmpty { result.append(.prose(before)) }
-                remainder = remainder[fence.upperBound...]
-                let lineBreak = remainder.firstIndex(of: "\n")
-                let header = lineBreak.map { String(remainder[..<$0]) } ?? String(remainder)
-                let language = header.trimmingCharacters(in: .whitespaces)
-                let lang = language.isEmpty ? nil : language
-                if let lineBreak {
-                    remainder = remainder[remainder.index(after: lineBreak)...]
-                } else {
-                    remainder = ""
-                }
-                if let end = remainder.range(of: "```") {
-                    let body = String(remainder[..<end.lowerBound]).trimmingCharacters(in: .newlines)
-                    result.append(.code(language: lang, content: body))
-                    remainder = remainder[end.upperBound...]
-                } else {
-                    result.append(.code(language: lang, content: String(remainder).trimmingCharacters(in: .newlines)))
-                    remainder = ""
-                }
-            } else {
-                let tail = String(remainder).trimmingCharacters(in: .whitespacesAndNewlines)
-                if !tail.isEmpty { result.append(.prose(tail)) }
-                remainder = ""
-            }
-        }
-        return result
+    private var blocks: [SpaceAgentMarkdownBlock] {
+        SpaceAgentMarkdownParser.parse(text)
     }
 }
 
 private enum SpaceAgentHermesTheme {
-    static let prose = Color.white.opacity(0.9)
+    static let prose = Color(red: 0.90, green: 0.93, blue: 0.96)
+    static let loading = Color(red: 0.58, green: 0.62, blue: 0.68)
     static let diffAdd = Color(red: 0.62, green: 0.88, blue: 0.72)
     static let diffRemove = Color(red: 0.82, green: 0.78, blue: 0.88)
     static let diffAddBg = Color(red: 0.35, green: 0.72, blue: 0.48).opacity(0.12)
     static let diffRemoveBg = Palette.hermesPurple.opacity(0.14)
-    static let diffMeta = Color.white.opacity(0.5)
+    static let diffMeta = Color(red: 0.58, green: 0.62, blue: 0.68)
+
+    static let traceBg = Color(red: 0.34, green: 0.36, blue: 0.40).opacity(0.55)
+    static let traceBorder = Color(red: 0.46, green: 0.48, blue: 0.52).opacity(0.65)
+    static let traceLabel = Color(red: 0.50, green: 0.53, blue: 0.57)
+    static let traceText = Color(red: 0.56, green: 0.59, blue: 0.63)
+    static let traceBullet = Color(red: 0.44, green: 0.47, blue: 0.51)
+
+    static let replyBg = Color(red: 0.10, green: 0.14, blue: 0.22).opacity(0.72)
+    static let replyBorder = SpaceAgentChatTokens.panelBorder
+    static let metaLabel = Color(red: 0.44, green: 0.47, blue: 0.52)
+    static let metaValue = Color(red: 0.54, green: 0.57, blue: 0.62)
+    static let disclosure = Color(red: 0.48, green: 0.51, blue: 0.56)
+    static let disclosureHover = Color(red: 0.60, green: 0.63, blue: 0.68)
+
+    static func replyChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous)
+                    .fill(replyBg)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous)
+                            .strokeBorder(replyBorder, lineWidth: 1)
+                    )
+            )
+    }
 }
 
 private struct SpaceAgentAssistantMessageBody: View {
@@ -2206,154 +2442,355 @@ private struct SpaceAgentDiffBlockView: View {
     }
 }
 
+private struct HermesLiveTraceSlots: Equatable {
+    var status: String?
+    var traces: [String] = []
+    var reply: String?
+}
+
+private struct HermesSettledPresentation: Equatable {
+    var reply: String?
+    var traces: [String] = []
+    var session: String?
+    var duration: String?
+    var messageSummary: String?
+
+    var hasDetails: Bool {
+        !traces.isEmpty || session != nil || duration != nil || messageSummary != nil
+    }
+
+    var summaryLabel: String {
+        var parts: [String] = []
+        if !traces.isEmpty {
+            let count = traces.count
+            parts.append("\(count) tool \(count == 1 ? "call" : "calls")")
+        }
+        if let duration, !duration.isEmpty {
+            parts.append(duration)
+        }
+        if parts.isEmpty, let session {
+            parts.append(HermesSettledPresentation.shortSessionID(session))
+        }
+        return parts.isEmpty ? "Session details" : parts.joined(separator: " · ")
+    }
+
+    var collapsedBulletPreview: String? {
+        guard !traces.isEmpty else { return nil }
+        let labels = traces.prefix(3).map { HermesSettledPresentation.traceBulletLabel($0) }
+        if traces.count > 3 {
+            return labels.joined(separator: "  ") + "  +\(traces.count - 3)"
+        }
+        return labels.joined(separator: "  ")
+    }
+
+    static func traceBulletLabel(_ trace: String) -> String {
+        let trimmed = trace.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 52 else { return "• \(trimmed)" }
+        let end = trimmed.index(trimmed.startIndex, offsetBy: 49)
+        return "• \(trimmed[..<end])…"
+    }
+
+    var hoverHelp: String {
+        var lines: [String] = []
+        if let session {
+            lines.append("Session: \(session)")
+        }
+        if let duration, !duration.isEmpty {
+            lines.append("Duration: \(duration)")
+        }
+        if let messageSummary, !messageSummary.isEmpty {
+            lines.append("Messages: \(messageSummary)")
+        }
+        if !traces.isEmpty {
+            lines.append("")
+            lines.append("Tool calls:")
+            for trace in traces.prefix(8) {
+                lines.append("• \(trace)")
+            }
+            if traces.count > 8 {
+                lines.append("• … +\(traces.count - 8) more")
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    static func shortSessionID(_ session: String) -> String {
+        guard session.count > 14 else { return session }
+        return String(session.suffix(12))
+    }
+
+    static func from(blocks: [HermesTranscriptBlock]) -> HermesSettledPresentation {
+        var presentation = HermesSettledPresentation()
+        for block in blocks {
+            switch block {
+            case .status:
+                break
+            case .toolTrace(let copy):
+                presentation.traces.append(copy)
+            case .reply(let copy):
+                presentation.reply = copy
+            case .sessionMeta(let session, let duration, let messages):
+                presentation.session = session
+                presentation.duration = duration
+                presentation.messageSummary = messages
+            }
+        }
+        return presentation
+    }
+}
+
 private struct SpaceAgentHermesTranscriptView: View {
     let text: String
-    var live = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if blocks.isEmpty {
-                Text(text.isEmpty ? "Initializing agent…" : text)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.55))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in
-                    SpaceAgentHermesTranscriptBlockView(
-                        block: block,
-                        showActivity: live && index == blocks.count - 1
-                    )
+        SpaceAgentHermesTheme.replyChrome {
+            SpaceAgentHermesReplyBody(text: replyText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .transaction { $0.animation = nil }
+    }
+
+    private var replyText: String {
+        HermesTranscriptParser.replyText(from: text)
+    }
+}
+
+private struct SpaceAgentHermesTraceDetailsDisclosure: View {
+    let presentation: HermesSettledPresentation
+
+    @State private var expanded = false
+    @State private var isHovered = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                expanded.toggle()
+            } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 5) {
+                        Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(isHovered
+                                ? SpaceAgentHermesTheme.disclosureHover
+                                : SpaceAgentHermesTheme.disclosure)
+                        Text(presentation.summaryLabel)
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundStyle(isHovered
+                                ? SpaceAgentHermesTheme.disclosureHover
+                                : SpaceAgentHermesTheme.disclosure)
+                        Spacer(minLength: 0)
+                    }
+                    if !expanded, let preview = presentation.collapsedBulletPreview {
+                        Text(preview)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(SpaceAgentHermesTheme.traceText)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { isHovered = $0 }
+            .help(presentation.hoverHelp)
+
+            if expanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    if !presentation.traces.isEmpty {
+                        SpaceAgentHermesTraceStreamBlock(traces: presentation.traces, live: false)
+                    }
+                    if let session = presentation.session {
+                        SpaceAgentHermesSessionMetaRow(
+                            session: session,
+                            duration: presentation.duration,
+                            messages: presentation.messageSummary
+                        )
+                    } else if presentation.duration != nil || presentation.messageSummary != nil {
+                        SpaceAgentHermesSessionMetaRow(
+                            session: "",
+                            duration: presentation.duration,
+                            messages: presentation.messageSummary
+                        )
+                    }
                 }
             }
         }
-        .textSelection(.enabled)
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous)
-                .fill(Color.black.opacity(live ? 0.4 : 0.32))
-                .overlay(
-                    RoundedRectangle(cornerRadius: SpaceAgentChatTokens.codeBlockRadius, style: .continuous)
-                        .strokeBorder(
-                            live ? Palette.hermesPurple.opacity(0.35) : SpaceAgentChatTokens.panelBorder,
-                            lineWidth: 1
-                        )
-                )
-        )
+        .padding(.top, 2)
+    }
+}
+
+private struct SpaceAgentHermesSessionMetaRow: View {
+    let session: String
+    let duration: String?
+    let messages: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if !session.isEmpty {
+                HStack(alignment: .top, spacing: 6) {
+                    Text("Session")
+                        .foregroundStyle(SpaceAgentHermesTheme.metaLabel)
+                    Text(session)
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(SpaceAgentHermesTheme.metaValue)
+                        .textSelection(.enabled)
+                }
+            }
+            if let duration, !duration.isEmpty {
+                HStack(spacing: 6) {
+                    Text("Duration")
+                        .foregroundStyle(SpaceAgentHermesTheme.metaLabel)
+                    Text(duration)
+                        .foregroundStyle(SpaceAgentHermesTheme.metaValue)
+                }
+            }
+            if let messages, !messages.isEmpty {
+                HStack(spacing: 6) {
+                    Text("Messages")
+                        .foregroundStyle(SpaceAgentHermesTheme.metaLabel)
+                    Text(messages)
+                        .foregroundStyle(SpaceAgentHermesTheme.metaValue)
+                }
+            }
+        }
+        .font(.system(size: 10, weight: .medium, design: .rounded))
+    }
+}
+
+/// Spinner + cycling Hermes verb (or fallback verbs when TUI hasn't emitted one yet).
+private struct SpaceAgentHermesLoadingRow: View {
+    let status: String?
+
+    private static let cycleVerbs = [
+        "🤔 Thinking…",
+        "🔎 Searching…",
+        "📖 Reading…",
+        "✏️ Writing…",
+        "🧠 Reasoning…",
+        "⚡ Working…",
+    ]
+
+    var body: some View {
+        TimelineView(.periodic(from: .distantPast, by: 1.35)) { timeline in
+            let display = resolvedLabel(at: timeline.date)
+            HStack(spacing: 7) {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(Palette.hermesPurple.opacity(0.8))
+                Text(display)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(SpaceAgentHermesTheme.loading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .animation(nil, value: display)
+            }
+        }
+        .transaction { $0.animation = nil }
     }
 
-    private var blocks: [HermesTranscriptBlock] {
-        HermesTranscriptParser.parse(text)
+    private func resolvedLabel(at date: Date) -> String {
+        if let status, !status.isEmpty { return status }
+        let index = Int(date.timeIntervalSinceReferenceDate / 1.35) % Self.cycleVerbs.count
+        return Self.cycleVerbs[index]
+    }
+}
+
+/// Tool trace stream — live panel shows an open block; settled view collapses into the accordion.
+private struct SpaceAgentHermesTraceStreamBlock: View {
+    let traces: [String]
+    var live: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(live ? "TRACE" : "TOOL CALLS")
+                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .tracking(1.1)
+                .foregroundStyle(SpaceAgentHermesTheme.traceLabel)
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(traces.enumerated()), id: \.offset) { _, trace in
+                    SpaceAgentHermesTraceBulletLine(text: trace)
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(SpaceAgentHermesTheme.traceBg)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(SpaceAgentHermesTheme.traceBorder, lineWidth: 1)
+                )
+        )
+        .transaction { $0.animation = nil }
+    }
+}
+
+private struct SpaceAgentHermesTraceBulletLine: View {
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Text("•")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(SpaceAgentHermesTheme.traceBullet)
+            Text(text)
+                .font(.system(size: SpaceAgentChatTokens.codeBlockFontSize, design: .monospaced))
+                .foregroundStyle(SpaceAgentHermesTheme.traceText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .transaction { $0.animation = nil }
     }
 }
 
 private struct SpaceAgentHermesTranscriptBlockView: View {
     let block: HermesTranscriptBlock
-    var showActivity = false
 
     var body: some View {
         switch block {
         case .status(let text):
-            HStack(spacing: 6) {
-                if showActivity {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(Palette.hermesPurple.opacity(0.8))
-                }
-                Text(text)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.5))
-            }
+            Text(text)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(SpaceAgentHermesTheme.loading)
 
         case .toolTrace(let text):
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: toolIcon(for: text))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Palette.hermesPurple.opacity(0.9))
-                    .frame(width: 14)
-                Text(text)
-                    .font(.system(size: SpaceAgentChatTokens.codeBlockFontSize, design: .monospaced))
-                    .foregroundStyle(Palette.hermesPurple.opacity(0.88))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Palette.hermesPurple.opacity(0.1))
-            )
+            SpaceAgentHermesTraceStreamBlock(traces: [text], live: true)
 
         case .reply(let text):
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 5) {
-                    HermesSparkCompact().frame(width: 12, height: 12)
-                    Text("HERMES")
-                        .font(.system(size: 9, weight: .heavy, design: .rounded))
-                        .tracking(1.1)
-                        .foregroundStyle(Palette.hermesPurple)
-                }
+            SpaceAgentHermesTheme.replyChrome {
                 SpaceAgentHermesReplyBody(text: text)
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.white.opacity(0.05))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(SpaceAgentChatTokens.panelBorder, lineWidth: 1)
-                    )
-            )
 
         case .sessionMeta(let session, let duration, let messages):
-            HStack(spacing: 6) {
-                Text(shortSessionID(session))
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.42))
-                if let duration {
-                    Text("·").foregroundStyle(.white.opacity(0.22))
-                    Text(duration)
-                }
-                if let messages {
-                    Text("·").foregroundStyle(.white.opacity(0.22))
-                    Text(messages)
-                }
-            }
-            .font(.system(size: 10, weight: .medium, design: .rounded))
-            .foregroundStyle(.white.opacity(0.38))
-            .padding(.top, 2)
+            SpaceAgentHermesSessionMetaRow(session: session, duration: duration, messages: messages)
         }
-    }
-
-    private func shortSessionID(_ session: String) -> String {
-        guard session.count > 14 else { return session }
-        return String(session.suffix(12))
-    }
-
-    private func toolIcon(for text: String) -> String {
-        let lower = text.lowercased()
-        if lower.contains("search") || lower.contains("find") || lower.contains("🔎") { return "magnifyingglass" }
-        if lower.contains("diff") || lower.contains("review") { return "doc.text.magnifyingglass" }
-        if lower.contains("$") || lower.contains("terminal") || lower.contains("💻") { return "terminal" }
-        if lower.contains("write") || lower.contains("edit") { return "pencil" }
-        return "gearshape.2"
     }
 }
 
-private struct SpaceAgentHermesLiveTranscriptRow: View {
-    let text: String
-
+private struct SpaceAgentInlineTypingDots: View {
     var body: some View {
-        HStack(alignment: .top, spacing: SpaceAgentChatTokens.bubbleGap) {
-            SpaceAgentHelmetAvatar()
-            SpaceAgentHermesTranscriptView(text: text, live: true)
-            Spacer(minLength: 0)
+        TimelineView(.animation(minimumInterval: 0.12)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 4) {
+                ForEach(0..<3, id: \.self) { i in
+                    let pulse = sin(t * 5 + Double(i) * 0.9) * 0.5 + 0.5
+                    Circle()
+                        .fill(Palette.hermesPurple.opacity(0.35 + 0.45 * pulse))
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
+        .transaction { $0.animation = nil }
     }
 }
 
 private struct SpaceAgentMessageRow: View {
     let message: ChatBubbleMessage
+    var animateEntry = true
 
     var body: some View {
         HStack(alignment: .top, spacing: SpaceAgentChatTokens.bubbleGap) {
@@ -2379,29 +2816,31 @@ private struct SpaceAgentMessageRow: View {
                 Spacer(minLength: 8)
             }
         }
-        .spaceAgentBubbleLand(token: message.id.uuidString)
+        .modifier(OptionalBubbleLand(token: message.id.uuidString, enabled: animateEntry))
+    }
+}
+
+private struct OptionalBubbleLand: ViewModifier {
+    let token: String
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.spaceAgentBubbleLand(token: token)
+        } else {
+            content
+        }
     }
 }
 
 private struct SpaceAgentTypingIndicator: View {
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.12)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 5) {
-                SpaceAgentHelmetAvatar()
-                HStack(spacing: 4) {
-                    ForEach(0..<3, id: \.self) { i in
-                        let pulse = sin(t * 5 + Double(i) * 0.9) * 0.5 + 0.5
-                        Circle()
-                            .fill(Palette.hermesPurple.opacity(0.35 + 0.45 * pulse))
-                            .frame(width: 6, height: 6)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                Spacer()
-            }
+        HStack(spacing: 5) {
+            SpaceAgentHelmetAvatar()
+            SpaceAgentInlineTypingDots()
+            Spacer()
         }
+        .transaction { $0.animation = nil }
     }
 }
 

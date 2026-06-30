@@ -36,6 +36,8 @@ protocol OnscreenAgentHandling: AnyObject {
     func onscreenAvatarDragBegan()
     func onscreenAvatarDragChanged(translation: CGSize)
     func onscreenAvatarDragEnded()
+    func onscreenAvatarSingleTap()
+    func onscreenAvatarDoubleTap()
 }
 
 // MARK: - Layout tokens (onscreen-agent.css)
@@ -103,6 +105,96 @@ struct SpaceAgentHelmetAvatar: View {
     }
 }
 
+/// AppKit click/drag target — SwiftUI TapGesture is unreliable inside TimelineView + NSHostingView.
+private struct AvatarInteractionTarget: NSViewRepresentable {
+    var onHover: ((Bool) -> Void)?
+    var onDragBegan: (() -> Void)?
+    var onDragChanged: (() -> Void)?
+    var onDragEnded: (() -> Void)?
+    var onSingleTap: (() -> Void)?
+    var onDoubleTap: (() -> Void)?
+
+    func makeNSView(context: Context) -> AvatarInteractionNSView {
+        let view = AvatarInteractionNSView()
+        sync(view)
+        return view
+    }
+
+    func updateNSView(_ nsView: AvatarInteractionNSView, context: Context) {
+        sync(nsView)
+    }
+
+    private func sync(_ view: AvatarInteractionNSView) {
+        view.onHover = onHover
+        view.onDragBegan = onDragBegan
+        view.onDragChanged = onDragChanged
+        view.onDragEnded = onDragEnded
+        view.onSingleTap = onSingleTap
+        view.onDoubleTap = onDoubleTap
+    }
+}
+
+final class AvatarInteractionNSView: NSView {
+    var onHover: ((Bool) -> Void)?
+    var onDragBegan: (() -> Void)?
+    var onDragChanged: (() -> Void)?
+    var onDragEnded: (() -> Void)?
+    var onSingleTap: (() -> Void)?
+    var onDoubleTap: (() -> Void)?
+
+    private var dragActive = false
+    private var dragStart = NSPoint.zero
+    private let dragThreshold: CGFloat = 6
+    private var trackingArea: NSTrackingArea?
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea { removeTrackingArea(trackingArea) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHover?(true) }
+    override func mouseExited(with event: NSEvent) { onHover?(false) }
+
+    override func mouseDown(with event: NSEvent) {
+        dragStart = event.locationInWindow
+        dragActive = false
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        let dx = event.locationInWindow.x - dragStart.x
+        let dy = event.locationInWindow.y - dragStart.y
+        if !dragActive, hypot(dx, dy) >= dragThreshold {
+            dragActive = true
+            onDragBegan?()
+        }
+        if dragActive { onDragChanged?() }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if dragActive {
+            dragActive = false
+            onDragEnded?()
+            return
+        }
+        if event.clickCount == 2 {
+            onDoubleTap?()
+        } else if event.clickCount == 1 {
+            onSingleTap?()
+        }
+    }
+}
+
 struct SpaceAgentAvatarView: View {
     let dockedRight: Bool
     let edgeHidden: Bool
@@ -111,34 +203,44 @@ struct SpaceAgentAvatarView: View {
     var onDragBegan: (() -> Void)?
     var onDragChanged: ((CGSize) -> Void)?
     var onDragEnded: (() -> Void)?
-
-    @State private var dragActive = false
+    var onSingleTap: (() -> Void)?
+    var onDoubleTap: (() -> Void)?
 
     var body: some View {
-        TimelineView(.animation) { timeline in
-            let elapsed = timeline.date.timeIntervalSinceReferenceDate
-            let motion = edgeHidden ? (offset: CGSize.zero, rotation: edgeRotation) : {
-                let f = SpaceAgentAvatarFloat.sample(at: elapsed)
-                return (offset: f.offset, rotation: f.rotation + edgeRotation)
-            }()
+        ZStack {
+            TimelineView(.animation) { timeline in
+                let elapsed = timeline.date.timeIntervalSinceReferenceDate
+                let motion = edgeHidden ? (offset: CGSize.zero, rotation: edgeRotation) : {
+                    let f = SpaceAgentAvatarFloat.sample(at: elapsed)
+                    return (offset: f.offset, rotation: f.rotation + edgeRotation)
+                }()
 
-            Group {
-                if let avatar = SpaceAgentAssets.avatar {
-                    avatar.resizable().scaledToFit()
-                } else {
-                    Image(systemName: "figure.stand")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.white.opacity(0.5))
+                Group {
+                    if let avatar = SpaceAgentAssets.avatar {
+                        avatar.resizable().scaledToFit()
+                    } else {
+                        Image(systemName: "figure.stand")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
                 }
+                .scaleEffect(x: dockedRight ? -1 : 1, y: 1)
+                .rotationEffect(motion.rotation)
+                .offset(motion.offset)
             }
-            .scaleEffect(x: dockedRight ? -1 : 1, y: 1)
-            .rotationEffect(motion.rotation)
-            .offset(motion.offset)
+            .allowsHitTesting(false)
+
+            AvatarInteractionTarget(
+                onHover: onHover,
+                onDragBegan: onDragBegan,
+                onDragChanged: { onDragChanged?(.zero) },
+                onDragEnded: onDragEnded,
+                onSingleTap: onSingleTap,
+                onDoubleTap: onDoubleTap
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: SpaceAgentChatTokens.avatarSize, height: SpaceAgentChatTokens.avatarSize)
-        .contentShape(Rectangle())
-        .onHover { onHover?($0) }
-        .gesture(avatarDragGesture)
     }
 
     private var edgeRotation: Angle {
@@ -149,21 +251,6 @@ struct SpaceAgentAvatarView: View {
         case .top: return .degrees(180)
         case .bottom: return .zero
         }
-    }
-
-    private var avatarDragGesture: some Gesture {
-        DragGesture(minimumDistance: 4)
-            .onChanged { value in
-                if !dragActive {
-                    dragActive = true
-                    onDragBegan?()
-                }
-                onDragChanged?(value.translation)
-            }
-            .onEnded { _ in
-                dragActive = false
-                onDragEnded?()
-            }
     }
 }
 
@@ -259,7 +346,7 @@ struct SpaceAgentShellView: View {
     var model: PoseModel
     var handler: OnscreenAgentHandling?
 
-    @State private var panelVisible = false
+    @State private var chatPanelVisible = false
 
     var body: some View {
         let pose = model.pose
@@ -276,28 +363,42 @@ struct SpaceAgentShellView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dockedRight ? .bottomTrailing : .bottomLeading)
         .padding(SpaceAgentChatTokens.shellPadding)
         .opacity(edgeHidden ? 0.72 : 1)
-        .onAppear {
-            withAnimation(.timingCurve(0.2, 0.9, 0.25, 1, duration: SpaceAgentChatTokens.modeTransition)) {
-                panelVisible = true
+        .onChange(of: model.pose.chatOpen) { _, isOpen in
+            if isOpen {
+                withAnimation(.timingCurve(0.2, 0.9, 0.25, 1, duration: SpaceAgentChatTokens.modeTransition)) {
+                    chatPanelVisible = true
+                }
+            } else {
+                chatPanelVisible = false
             }
         }
     }
 
-    /// Space-agent CSS: 72×72 cluster, bubble absolute above-right, panel beside avatar (bottom-aligned).
+    /// Avatar stays pinned to the shell corner; chat overlays beside it (no HStack reflow).
+    @ViewBuilder
     private func horizontalShell(
         pose: Pose,
         dockedRight: Bool,
         edgeHidden: Bool,
         showsMoodBubble: Bool
     ) -> some View {
-        HStack(alignment: .bottom, spacing: SpaceAgentChatTokens.clusterGap) {
-            if dockedRight {
-                if pose.chatOpen, !edgeHidden { chatBody(pose: pose) }
-                agentCluster(pose: pose, dockedRight: dockedRight, edgeHidden: edgeHidden, showsMoodBubble: showsMoodBubble)
-            } else {
-                agentCluster(pose: pose, dockedRight: dockedRight, edgeHidden: edgeHidden, showsMoodBubble: showsMoodBubble)
-                if pose.chatOpen, !edgeHidden { chatBody(pose: pose) }
+        let chatOffset = SpaceAgentChatTokens.avatarSize + SpaceAgentChatTokens.clusterGap
+
+        ZStack(alignment: dockedRight ? .bottomTrailing : .bottomLeading) {
+            if pose.chatOpen, !edgeHidden {
+                chatBody(pose: pose)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .offset(x: dockedRight ? -chatOffset : chatOffset)
+                    .zIndex(0)
             }
+
+            agentCluster(
+                pose: pose,
+                dockedRight: dockedRight,
+                edgeHidden: edgeHidden,
+                showsMoodBubble: showsMoodBubble
+            )
+            .zIndex(1)
         }
     }
 
@@ -317,7 +418,9 @@ struct SpaceAgentShellView: View {
                 onHover: { handler?.onscreenAvatarHover($0) },
                 onDragBegan: { handler?.onscreenAvatarDragBegan() },
                 onDragChanged: { handler?.onscreenAvatarDragChanged(translation: $0) },
-                onDragEnded: { handler?.onscreenAvatarDragEnded() }
+                onDragEnded: { handler?.onscreenAvatarDragEnded() },
+                onSingleTap: { handler?.onscreenAvatarSingleTap() },
+                onDoubleTap: { handler?.onscreenAvatarDoubleTap() }
             )
 
             if showsMoodBubble, !edgeHidden {
@@ -376,8 +479,15 @@ struct SpaceAgentShellView: View {
             onCollapse: { handler?.onscreenCollapseChat() },
             onActivate: { handler?.onscreenComposerActivated() }
         )
-        .scaleEffect(panelVisible ? 1 : 0.968)
-        .opacity(panelVisible ? 1 : 0.88)
-        .offset(y: panelVisible ? 0 : (pose.chatDisplayMode == .compact ? 6 : 12))
+        .scaleEffect(chatPanelVisible ? 1 : 0.968)
+        .opacity(chatPanelVisible ? 1 : 0.88)
+        .offset(y: chatPanelVisible ? 0 : (pose.chatDisplayMode == .compact ? 6 : 12))
+        .animation(nil, value: pose.chatLiveTranscript)
+        .animation(nil, value: pose.chatLoading)
+        .onAppear {
+            if pose.chatOpen {
+                chatPanelVisible = true
+            }
+        }
     }
 }

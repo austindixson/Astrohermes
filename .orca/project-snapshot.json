@@ -1,0 +1,152 @@
+{
+  "analyzedAt" : "2026-06-30T16:39:28Z",
+  "git" : {
+    "branch" : "main",
+    "dirtyFileCount" : 23,
+    "lastCommitSubject" : "Add verbose Hermes TUI chat, wider full panel, and accessibility fix.",
+    "recentCommits" : [
+      "37f22ed Add verbose Hermes TUI chat, wider full panel, and accessibility fix.",
+      "eb6fa01 Add Hermes chat UI, Rocky assets, and pipeline scripts.",
+      "4b325c7 Merge pull request #1 from TenzinDhonyoe\/rival-detection-rework"
+    ]
+  },
+  "hasPlan" : true,
+  "hasReadme" : true,
+  "hasState" : false,
+  "incompletePlanItems" : [
+    "Hey — welcome back. Three items waiting from the NativeVibe integration: delete the stale PLAN.md, commit everything, and push. Say the word and I'll walk the canvas through it. What's on your mind?"
+  ],
+  "intelligence" : {
+    "architectureMermaid" : "flowchart TB\n  L1[\"1. Shell & View\\nSwiftUI, AppKit\"]\n  L2[\"2. Canvas System\\nSwiftUI, Spatial layout\"]\n  L3[\"3. Orchestrator\\nLLM tool loop, Command dispatch\"]\n  L4[\"4. Agent Runtime\\nPTY, CLI spawn\"]\n  L5[\"5. Utilities\\nPersistence, Git\"]\n  L1 --> L2\n  L2 --> L3\n  L3 --> L4\n  L4 --> L5",
+    "architectureSummary" : "Xcode organized in 5 layers: Shell & View → Canvas System → Orchestrator → Agent Runtime → Utilities.",
+    "contextBadge" : "PNG · macOS · 5 layers",
+    "entryPoints" : [
+
+    ],
+    "externalDependencies" : [
+
+    ],
+    "infrastructureMarkdown" : "- **Platforms:** macOS\n- **Scripts:** `scripts\/` test & automation harness",
+    "packageProducts" : [
+
+    ],
+    "primaryLanguages" : [
+      "PNG",
+      "Swift",
+      "Python",
+      "WEBP"
+    ],
+    "runtimePlatforms" : [
+      "macOS"
+    ],
+    "stackLayers" : [
+      {
+        "modules" : [
+          "OrcaCoderApp",
+          "Views",
+          "Chrome"
+        ],
+        "name" : "Shell & View",
+        "technologies" : [
+          "SwiftUI",
+          "AppKit"
+        ],
+        "tier" : 1
+      },
+      {
+        "modules" : [
+          "InfiniteCanvasView",
+          "CanvasGridLayout"
+        ],
+        "name" : "Canvas System",
+        "technologies" : [
+          "SwiftUI",
+          "Spatial layout"
+        ],
+        "tier" : 2
+      },
+      {
+        "modules" : [
+          "Orchestrator",
+          "BridgeOrchestratorPipeline"
+        ],
+        "name" : "Orchestrator",
+        "technologies" : [
+          "LLM tool loop",
+          "Command dispatch"
+        ],
+        "tier" : 3
+      },
+      {
+        "modules" : [
+          "AgentExecutor",
+          "PTYSession"
+        ],
+        "name" : "Agent Runtime",
+        "technologies" : [
+          "PTY",
+          "CLI spawn"
+        ],
+        "tier" : 4
+      },
+      {
+        "modules" : [
+          "PersistenceStore",
+          "GitIntegration"
+        ],
+        "name" : "Utilities",
+        "technologies" : [
+          "Persistence",
+          "Git",
+          "File I\/O"
+        ],
+        "tier" : 5
+      }
+    ],
+    "techStackMarkdown" : "**Languages:** PNG, Swift, Python, WEBP\n**Platforms:** macOS\n\n**Hierarchy** (presentation → core):\n1. **Shell & View** — SwiftUI, AppKit · _OrcaCoderApp, Views, Chrome_\n2. **Canvas System** — SwiftUI, Spatial layout · _InfiniteCanvasView, CanvasGridLayout_\n3. **Orchestrator** — LLM tool loop, Command dispatch · _Orchestrator, BridgeOrchestratorPipeline_\n4. **Agent Runtime** — PTY, CLI spawn · _AgentExecutor, PTYSession_\n5. **Utilities** — Persistence, Git, File I\/O · _PersistenceStore, GitIntegration_",
+    "userFlowMarkdown" : "1. **Launch** — welcome screen or resume last canvas\n2. **Open project** — folder binds workspace; Orca scans stack + architecture\n3. **Canvas** — spatial tiles: terminals, browser, plan, code, performance\n4. **Command** — voice or text to orchestrator; triage → decompose or direct tools\n5. **Agents** — parallel workers on canvas; lead synthesizes handoffs\n6. **Ship** — git commit, preview in browser tile, iterate"
+  },
+  "manifestFiles" : [
+
+  ],
+  "planExcerpt" : "# Plan\n\n**Status:** Advising — Advisory via Hermes\n\n## Request\nhi\n\n## Understanding\nHermes is reviewing your project and drafting next steps.\n\n## Build Plan\n### Next steps (from advisory)\n\n- [ ] Hey — welcome back. Three items waiting from the NativeVibe integration: delete the stale PLAN.md, commit everything, and push. Say the word and I'll walk the canvas through it. What's on your mind?\n\n## Tech Stack\n**Languages:** Swift, PNG, MD, SH\n**Platforms:** macOS\n\n**Hierarchy** (presentation → core):\n1. **Shell & View** — SwiftUI, AppKit, target:OrcaCoder, target:OrcaCLI · _OrcaCoderSettingsView, OrcaCoderApp, CanvasWelcomeView, CanvasChromeInsets_\n2. **Canvas System** — SwiftUI, Spatial layout · _CanvasPanMomentum, LoFiWallpaperStore, CanvasLayoutPresets, CanvasPlanTileView_\n3. **Orchestrator** — LLM tool loop, Command dispatch · _OrchestratorLog, CommandDispatcher, BridgeOrchestratorPipeline, DecompositionActivity_\n4. **Agent Runtime** — PTY, CLI spawn, SwiftTerm · _AgentCLI, SubAgentConcurrencyGate, AgentDelegation, PTYSession_\n5. **Utilities** — Persistence, Git, File I\/O · _CLIClient, main, FreeformCanvasLayout, LocalProxyController_\n\n**External dependencies:** SwiftTerm\n\n## Dependencies\n- **Build:** `swift build`\n- **Test:** `swift test`\n- **Package:** Swift PM (`Package.swift`)\n- **Targets:** OrcaCoder, OrcaCLI\n- **Platforms:** macOS\n- **Web subtree:** `web\/` for landing\/marketing\n- **VCS:** Git\n- **Scripts:** `scripts\/` test & automation harness\n\n## User Flow\n1. **Launch** — welcome screen or resume last canvas\n2. **Open project** — folder binds workspace; Orca scans stack + architecture\n3. **Canvas** — spatial tiles: terminals, browser, plan, code, performance\n4. **Command** — voice or text to orchestrator; triage → decompose or direct tools\n5. **Agents** — parallel workers on canvas; lead synthesizes handoffs\n6. **Ship** — git commit, preview in browser tile, iterate\n\n## Design Guide\n_In progress…_\n\n## Architecture\n```mermaid\nflowchart TD\n  User[\"User Request\"] --> Lead[\"Orca\"]\n  Lead --> Work[\"Orchestrating…\"]\n```",
+  "projectKind" : "xcode",
+  "readmeExcerpt" : "# Pip 🐾\n\nA cute, transparent desktop mascot for macOS that **walks along the bottom edge of your\nscreen** with a real walk cycle, and changes mood based on your **live Claude Code\nusage** — pulled from your logged-in Claude session. No API key, no cloud account, no\nbilling, no third-party dependencies. Everything stays on your machine.\n\nPip's goal is to help you **maximize your 5-hour window without wasting quota at reset**.\nHe doesn't panic as the reset approaches — he gets antsy when you're *under*-using your\nquota, and only worries when you're about to hit the cap.\n\n---\n\n## ⚡️ One-shot setup (recommended)\n\n**Copy the block below and paste it into [Claude Code](https:\/\/claude.com\/claude-code).**\nIt will clone, build, install, and launch Pip for you — and fix anything that goes wrong\nalong the way.\n\n> ```\n> Set up Pip, a macOS desktop mascot, on my Mac from\n> https:\/\/github.com\/TenzinDhonyoe\/pip-mascot\n>\n> Do all of this for me, and troubleshoot anything that fails:\n> 1. Clone the repo into ~\/Developer (create it if needed) and cd into it.\n> 2. Confirm I have full Xcode (not just the command-line tools). If `xcodebuild\n>    -version` fails or points at CommandLineTools, tell me to \n…(truncated)",
+  "resumeHeadline" : "Welcome back — 1 open plan item",
+  "schemaVersion" : 2,
+  "sourceFileCounts" : {
+    "jpg" : 1,
+    "json" : 2,
+    "md" : 1,
+    "png" : 745,
+    "py" : 3,
+    "swift" : 43,
+    "webp" : 3,
+    "yaml" : 1
+  },
+  "statePriorities" : [
+
+  ],
+  "suggestedNextSteps" : [
+    "Tackle: Hey — welcome back. Three items waiting from the NativeVibe integration: delete the stale PLAN.md, commit everything, and push. Say the word and I'll walk the canvas through it. What's on your mind?",
+    "Review 23 uncommitted changes before continuing",
+    "Continue from last commit: Add verbose Hermes TUI chat, wider full panel, and accessibility fix."
+  ],
+  "topLevelEntries" : [
+    ".orca",
+    "build",
+    "hermes-plugin",
+    "LICENSE",
+    "mascot",
+    "NativeVibeApp",
+    "Pip",
+    "Pip.xcodeproj",
+    "PLAN.md",
+    "README.md",
+    "Rocky",
+    "rocky-assets",
+    "scripts",
+    "skins"
+  ],
+  "workspaceRoot" : "\/Users\/ghost\/Desktop\/Projects\/pip-mascot"
+}

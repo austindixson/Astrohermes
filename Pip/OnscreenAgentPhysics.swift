@@ -19,6 +19,12 @@ final class OnscreenAgentPhysics {
     static let hiddenEdgeSnapDeadZoneMin: CGFloat = 4
     static let sideShiftDuration: TimeInterval = 0.28
     static let avatarSize: CGFloat = 72
+    static let shellPadding: CGFloat = 8
+
+    static var dockedWindowSize: NSSize {
+        let footprint = shellPadding * 2 + avatarSize
+        return NSSize(width: footprint, height: footprint)
+    }
 
     /// Agent shell top-left in viewport coordinates (CSS-style: y increases downward).
     private(set) var agentX: CGFloat = 0
@@ -65,18 +71,26 @@ final class OnscreenAgentPhysics {
 
     // MARK: - Coordinate conversion
 
+    /// When tucked to an edge, layout math always uses the avatar-only footprint —
+    /// even if the panel hasn't finished shrinking yet (e.g. full chat still open).
+    private func layoutWindowSize() -> NSSize {
+        hiddenEdge != nil ? Self.dockedWindowSize : windowSize
+    }
+
     /// Window origin (AppKit) from agent top-left (CSS viewport coords).
     func windowOrigin(agentX: CGFloat, agentY: CGFloat, in visible: NSRect) -> NSPoint {
-        NSPoint(
+        let size = layoutWindowSize()
+        return NSPoint(
             x: visible.minX + agentX,
-            y: visible.maxY - agentY - windowSize.height
+            y: visible.maxY - agentY - size.height
         )
     }
 
     func agentPosition(from windowOrigin: NSPoint, in visible: NSRect) -> (x: CGFloat, y: CGFloat) {
-        (
+        let size = layoutWindowSize()
+        return (
             x: windowOrigin.x - visible.minX,
-            y: visible.maxY - windowOrigin.y - windowSize.height
+            y: visible.maxY - windowOrigin.y - size.height
         )
     }
 
@@ -110,22 +124,40 @@ final class OnscreenAgentPhysics {
 
     // MARK: - Clamp & edge detection (store.js)
 
+    /// `agentX` is the window origin; the drawable avatar sits `shellPadding` inside it.
+    private func avatarLeft(fromWindowX windowX: CGFloat) -> CGFloat {
+        windowX + Self.shellPadding
+    }
+
+    private func windowX(fromAvatarLeft avatarLeft: CGFloat) -> CGFloat {
+        avatarLeft - Self.shellPadding
+    }
+
+    /// Window-x bounds that keep the avatar fully inside the viewport.
+    private func visibleWindowXRange(in visible: NSRect) -> (min: CGFloat, max: CGFloat) {
+        let vp = viewportSize(in: visible)
+        let minX = windowX(fromAvatarLeft: Self.positionMargin)
+        let maxX = windowX(fromAvatarLeft: vp.width - Self.positionMargin - Self.avatarSize)
+        return (min(minX, maxX), max(minX, maxX))
+    }
+
     func clampPosition(x: CGFloat, y: CGFloat, hiddenEdge: OnscreenAgentHiddenEdge?, in visible: NSRect) -> (x: CGFloat, y: CGFloat) {
         let vp = viewportSize(in: visible)
         let nx = round(x)
         let ny = round(y)
         let inset = hiddenVisibleInset()
         let offset = hiddenHiddenOffset()
-        let maxX = max(Self.positionMargin, vp.width - Self.avatarSize - Self.positionMargin)
+        let windowBounds = visibleWindowXRange(in: visible)
         let maxY = max(Self.positionMargin, vp.height - Self.avatarSize - Self.positionMargin)
-        let clampX = { (v: CGFloat) in min(maxX, max(Self.positionMargin, v)) }
+        let clampX = { (v: CGFloat) in min(windowBounds.max, max(windowBounds.min, v)) }
         let clampY = { (v: CGFloat) in min(maxY, max(Self.positionMargin, v)) }
 
         switch hiddenEdge {
         case .left:
-            return (x: -offset, y: clampY(ny))
+            // ~60% of the avatar peeks in from the left edge.
+            return (x: windowX(fromAvatarLeft: -offset), y: clampY(ny))
         case .right:
-            return (x: vp.width - inset, y: clampY(ny))
+            return (x: windowX(fromAvatarLeft: vp.width - inset), y: clampY(ny))
         case .top:
             return (x: clampX(nx), y: -offset)
         case .bottom:
@@ -135,21 +167,21 @@ final class OnscreenAgentPhysics {
         }
     }
 
-    private func hiddenEdgeOverflow(x: CGFloat, y: CGFloat, in visible: NSRect) -> [OnscreenAgentHiddenEdge: CGFloat] {
+    private func hiddenEdgeOverflow(x windowX: CGFloat, y: CGFloat, in visible: NSRect) -> [OnscreenAgentHiddenEdge: CGFloat] {
         let vp = viewportSize(in: visible)
-        let nx = round(x)
+        let avatarX = avatarLeft(fromWindowX: round(windowX))
         let ny = round(y)
         let size = Self.avatarSize
         return [
-            .left: max(0, -nx),
-            .right: max(0, nx + size - vp.width),
+            .left: max(0, -avatarX),
+            .right: max(0, avatarX + size - vp.width),
             .bottom: max(0, ny + size - vp.height)
         ]
     }
 
     func hiddenEdgeForPosition(x: CGFloat, y: CGFloat, current: OnscreenAgentHiddenEdge?, in visible: NSRect) -> OnscreenAgentHiddenEdge? {
         let vp = viewportSize(in: visible)
-        let nx = round(x)
+        let avatarX = avatarLeft(fromWindowX: round(x))
         let ny = round(y)
         let threshold = revealThreshold()
         let size = Self.avatarSize
@@ -157,21 +189,21 @@ final class OnscreenAgentPhysics {
         if let current {
             let revealed: Bool
             switch current {
-            case .left: revealed = nx >= threshold
-            case .right: revealed = nx <= vp.width - size - threshold
+            case .left: revealed = avatarX >= threshold
+            case .right: revealed = avatarX + size <= vp.width - threshold
             case .top: revealed = ny >= threshold
             case .bottom: revealed = ny <= vp.height - size - threshold
             }
             if revealed { return nil }
 
-            let overflow = hiddenEdgeOverflow(x: nx, y: ny, in: visible)
+            let overflow = hiddenEdgeOverflow(x: x, y: ny, in: visible)
             if let next = overflow.max(by: { $0.value < $1.value }), next.value > 0 {
                 return next.key
             }
             return current
         }
 
-        let overflow = hiddenEdgeOverflow(x: nx, y: ny, in: visible)
+        let overflow = hiddenEdgeOverflow(x: x, y: ny, in: visible)
         guard let worst = overflow.max(by: { $0.value < $1.value }), worst.value > snapDeadZone() else {
             return nil
         }
@@ -187,8 +219,8 @@ final class OnscreenAgentPhysics {
         let size = Self.avatarSize
 
         switch edge {
-        case .left: x = threshold
-        case .right: x = vp.width - size - threshold
+        case .left: x = windowX(fromAvatarLeft: threshold)
+        case .right: x = windowX(fromAvatarLeft: vp.width - size - threshold)
         case .top: y = threshold
         case .bottom: y = vp.height - size - threshold
         }
@@ -262,11 +294,24 @@ final class OnscreenAgentPhysics {
         agentY = pos.y
     }
 
+    /// Keep the astronaut's viewport position fixed when the panel footprint changes.
+    func preserveAvatarAnchor(oldSize: NSSize, newSize: NSSize, dockedRight: Bool) {
+        agentY += oldSize.height - newSize.height
+        if dockedRight {
+            agentX += oldSize.width - newSize.width
+        }
+    }
+
     // MARK: - Drag (handleAgentPointerDown/Move/Up)
 
     func beginDrag(mouse: NSPoint) {
         guard let visible = visibleFrameProvider?() else { return }
         syncFromWindow(in: visible)
+        if let edge = hiddenEdge {
+            let revealed = revealedPosition(for: edge, in: visible)
+            applyAgent(revealed.x, revealed.y, hiddenEdge: nil)
+            moveWindow?(windowOrigin(in: visible))
+        }
         isDragging = true
         dragMoved = false
         dragOriginX = agentX
@@ -323,8 +368,18 @@ final class OnscreenAgentPhysics {
         setPosition(x: pos.x, y: pos.y, hiddenEdge: nil, animate: true, in: visible)
     }
 
+    /// Tuck Pip against the nearest horizontal screen edge (~60% peeking in).
+    func tuckToNearestEdge(in visible: NSRect) {
+        let vp = viewportSize(in: visible)
+        let avatarX = avatarLeft(fromWindowX: agentX)
+        let edge: OnscreenAgentHiddenEdge = avatarX + Self.avatarSize / 2 <= vp.width / 2 ? .left : .right
+        let clamped = clampPosition(x: agentX, y: agentY, hiddenEdge: edge, in: visible)
+        setPosition(x: clamped.x, y: clamped.y, hiddenEdge: edge, animate: true, in: visible)
+    }
+
     var isDockedRight: Bool {
         guard let visible = visibleFrameProvider?() else { return false }
-        return agentX > viewportSize(in: visible).width / 2
+        let avatarX = avatarLeft(fromWindowX: agentX)
+        return avatarX + Self.avatarSize / 2 > viewportSize(in: visible).width / 2
     }
 }

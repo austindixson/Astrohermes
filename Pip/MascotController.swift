@@ -50,20 +50,33 @@ final class MascotContainerView: NSView {
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        if Self.draggingIsRival(sender) { controller?.rivalDraggedNear() }
-        if controller?.isChatOpen == true, !Self.filePaths(from: sender).isEmpty { return .copy }
-        return []
+        Self.draggingEntered(sender, controller: controller)
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        if Self.draggingIsRival(sender) { controller?.rivalDraggedNear() }
-        if controller?.isChatOpen == true, !Self.filePaths(from: sender).isEmpty { return .copy }
-        return []
+        Self.draggingUpdated(sender, controller: controller)
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        Self.performDragOperation(sender, controller: controller)
+    }
+
+    static func draggingEntered(_ sender: NSDraggingInfo, controller: MascotController?) -> NSDragOperation {
+        if draggingIsRival(sender) { controller?.rivalDraggedNear() }
+        if controller?.isChatOpen == true, !filePaths(from: sender).isEmpty { return .copy }
+        return []
+    }
+
+    static func draggingUpdated(_ sender: NSDraggingInfo, controller: MascotController?) -> NSDragOperation {
+        if draggingIsRival(sender) { controller?.rivalDraggedNear() }
+        if controller?.isChatOpen == true, !filePaths(from: sender).isEmpty { return .copy }
+        return []
+    }
+
+    @discardableResult
+    static func performDragOperation(_ sender: NSDraggingInfo, controller: MascotController?) -> Bool {
         guard controller?.isChatOpen == true else { return false }
-        let paths = Self.filePaths(from: sender)
+        let paths = filePaths(from: sender)
         guard !paths.isEmpty else { return false }
         HermesChatClient.shared.adoptWorkspace(paths: paths)
         NotificationCenter.default.post(name: .pipFileDrop, object: paths)
@@ -90,9 +103,85 @@ final class MascotContainerView: NSView {
 }
 
 /// SwiftUI host that accepts first click without activating the app first.
+/// Forwards hits to embedded AppKit composer views — NSHostingView's default hitTest
+/// often swallows clicks before they reach NSViewRepresentable children.
 final class InteractiveHostingView<Content: View>: NSHostingView<Content> {
+    weak var controller: MascotController?
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        registerForDraggedTypes([.fileURL])
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        MascotContainerView.draggingEntered(sender, controller: controller)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        MascotContainerView.draggingUpdated(sender, controller: controller)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        MascotContainerView.performDragOperation(sender, controller: controller)
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard bounds.contains(point) else { return nil }
+        if let avatarHit = Self.hitTestAvatarInteraction(at: point, in: self) {
+            return avatarHit
+        }
+        if let composerHit = Self.hitTestComposerViews(at: point, in: self) {
+            return composerHit
+        }
+        return super.hitTest(point)
+    }
+
+    private static func hitTestAvatarInteraction(at point: NSPoint, in root: NSView) -> NSView? {
+        for avatar in avatarInteractionViews(in: root) {
+            let local = avatar.convert(point, from: root)
+            guard avatar.bounds.contains(local) else { continue }
+            if let hit = avatar.hitTest(local) {
+                return hit
+            }
+        }
+        return nil
+    }
+
+    private static func avatarInteractionViews(in view: NSView) -> [AvatarInteractionNSView] {
+        var found: [AvatarInteractionNSView] = []
+        if let avatar = view as? AvatarInteractionNSView {
+            found.append(avatar)
+        }
+        for subview in view.subviews {
+            found.append(contentsOf: avatarInteractionViews(in: subview))
+        }
+        return found
+    }
+
+    private static func hitTestComposerViews(at point: NSPoint, in root: NSView) -> NSView? {
+        for container in composerContainers(in: root) {
+            let local = container.convert(point, from: root)
+            guard container.bounds.contains(local) else { continue }
+            if let hit = container.hitTest(local) {
+                return hit
+            }
+        }
+        return nil
+    }
+
+    private static func composerContainers(in view: NSView) -> [SpaceAgentComposerTextContainer] {
+        var found: [SpaceAgentComposerTextContainer] = []
+        if let container = view as? SpaceAgentComposerTextContainer {
+            found.append(container)
+        }
+        for subview in view.subviews {
+            found.append(contentsOf: composerContainers(in: subview))
+        }
+        return found
+    }
 }
 
 /// Bridges onscreen-agent UI callbacks to MascotController without a retain cycle.
@@ -109,15 +198,26 @@ final class OnscreenAgentBridge: OnscreenAgentHandling {
     func onscreenAvatarDragBegan() { controller?.avatarDragBegan() }
     func onscreenAvatarDragChanged(translation: CGSize) { controller?.avatarDragChanged() }
     func onscreenAvatarDragEnded() { controller?.avatarDragEnded() }
+    func onscreenAvatarSingleTap() { controller?.avatarSingleTap() }
+    func onscreenAvatarDoubleTap() { controller?.avatarDoubleTap() }
 }
 
 final class MascotController: NSObject {
+
+    private static let rivalDetectionDefaultsKey = "pip.rivalDockDetectionEnabled"
 
     static var windowSize: NSSize {
         SpaceAgentLayout.windowSize(chatOpen: false, mode: .compact)
     }
 
+    private static func dockedAvatarWindowSize() -> NSSize {
+        OnscreenAgentPhysics.dockedWindowSize
+    }
+
     private func currentWindowSize() -> NSSize {
+        if engine.physics.hiddenEdge != nil {
+            return Self.dockedAvatarWindowSize()
+        }
         let pose = model.pose
         let compactLoading = pose.chatOpen
             && pose.chatDisplayMode == .compact
@@ -146,10 +246,19 @@ final class MascotController: NSObject {
     private var hostingView: InteractiveHostingView<MascotRootView>!
     private var tooltipTimer: Timer?
     private var rivalTimer: Timer?
+    private var rivalDockDetectionEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.rivalDetectionDefaultsKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.rivalDetectionDefaultsKey) }
+    }
 
     private var avatarDragActive = false
     private var composerTextHeight: CGFloat = SpaceAgentChatTokens.composerRowHeightCompact
-    private var keyEventMonitor: Any?
+    private var localKeyEventMonitor: Any?
+    private var commandKHotKey: CommandKHotKey?
+    private var pendingAvatarSingleTap: DispatchWorkItem?
+    private var lastChatToggleAt: TimeInterval = 0
+    private let chatToggleDebounce: TimeInterval = 0.2
+    private let avatarSingleTapDelay: TimeInterval = 0.28
 
     // Auto-hide Dock "platform": no API exposes its geometry, so estimate the
     // top edge above the bottom (≈ tilesize 57 + padding) and detect the reveal
@@ -191,13 +300,14 @@ final class MascotController: NSObject {
         container.controller = self
         container.registerForDraggedTypes([.fileURL])
         let hosting = InteractiveHostingView(rootView: MascotRootView(model: model, handler: agentBridge))
+        hosting.controller = self
         hosting.frame = container.bounds
         hosting.autoresizingMask = [.width, .height]
         hosting.wantsLayer = true
-        hosting.layer?.masksToBounds = false
+        hosting.layer?.masksToBounds = true
         container.addSubview(hosting)
         container.wantsLayer = true
-        container.layer?.masksToBounds = false
+        container.layer?.masksToBounds = true
         panel.contentView = container
         containerView = container
         hostingView = hosting
@@ -218,7 +328,14 @@ final class MascotController: NSObject {
 
         NotificationCenter.default.addObserver(
             forName: .pipChatResize, object: nil, queue: .main) { [weak self] note in
-            if let open = note.object as? Bool { self?.resizeForChat(open: open) }
+            guard let self, let animateOpen = note.object as? Bool else { return }
+            let resize = { self.resizeForChat(open: animateOpen) }
+            // Let SwiftUI drop the chat panel before shrinking — avoids a clipped white strip.
+            if animateOpen || self.model.pose.chatOpen {
+                resize()
+            } else {
+                DispatchQueue.main.async(execute: resize)
+            }
         }
         NotificationCenter.default.addObserver(
             forName: .pipChatMode, object: nil, queue: .main) { [weak self] _ in
@@ -233,7 +350,16 @@ final class MascotController: NSObject {
             }
         }
 
-        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        installKeyMonitors()
+    }
+
+    private func installKeyMonitors() {
+        commandKHotKey = CommandKHotKey { [weak self] in
+            self?.handleChatToggleShortcut()
+        }
+
+        // Composer editing shortcuts only — ⌘K is handled by CommandKHotKey globally.
+        localKeyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.model.pose.chatOpen else { return event }
             guard event.modifierFlags.contains(.command),
                   let key = event.charactersIgnoringModifiers?.lowercased() else { return event }
@@ -253,6 +379,13 @@ final class MascotController: NSObject {
             }
             return event
         }
+    }
+
+    deinit {
+        if let localKeyEventMonitor {
+            NSEvent.removeMonitor(localKeyEventMonitor)
+        }
+        commandKHotKey = nil
     }
 
     func activateComposer() {
@@ -318,16 +451,13 @@ final class MascotController: NSObject {
         tooltipTimer = t
         refreshTooltip()
 
-        // Fume whenever the cursor hovers the ChatGPT icon in the Dock. Requires
-        // Accessibility — check silently; never auto-prompt on launch (rebuilt or
-        // DerivedData binaries often differ from the app entry in System Settings).
-        let trusted = AXIsProcessTrusted()
-        let rt = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
-            self?.pollRivalHover()
-        }
-        RunLoop.main.add(rt, forMode: .common)
-        rivalTimer = rt
-        Self.dlog("=== Pip launched; rival hover poll started; accessibilityTrusted=\(trusted) ===")
+        // Dock rival hover is opt-in — touching AX without permission spams the
+        // macOS accessibility prompt on every launch (especially debug rebuilds).
+        startRivalTimerIfNeeded()
+        Self.dlog(
+            "=== Pip launched; rivalDockDetection=\(rivalDockDetectionEnabled) "
+            + "accessibilityTrusted=\(AXIsProcessTrusted()) ==="
+        )
     }
 
     private func refreshTooltip() {
@@ -367,6 +497,9 @@ final class MascotController: NSObject {
         chatItem.keyEquivalent = "k"
         chatItem.keyEquivalentModifierMask = .command
         menu.addItem(chatItem)
+
+        menu.addItem(actionItem("Open NativeVibe IDE", action: #selector(openNativeVibeIDE),
+                                symbol: "rectangle.inset.filled.and.cursorarrow"))
         menu.addItem(.separator())
 
         let goHome = actionItem("Go Home", action: #selector(goHome), symbol: "house.fill")
@@ -402,13 +535,13 @@ final class MascotController: NSObject {
         badge.state = engine.showBadgePersistent ? .on : .off
         menu.addItem(badge)
 
-        if !AXIsProcessTrusted() {
-            menu.addItem(actionItem(
-                "Enable Dock Rival Detection…",
-                action: #selector(requestAccessibilityAccess),
-                symbol: "accessibility"
-            ))
-        }
+        let rivalItem = actionItem(
+            "Dock Rival Detection",
+            action: #selector(toggleRivalDockDetection),
+            symbol: "accessibility"
+        )
+        rivalItem.state = rivalDockDetectionEnabled && AXIsProcessTrusted() ? .on : .off
+        menu.addItem(rivalItem)
 
         menu.addItem(.separator())
         menu.addItem(actionItem("Refresh Usage Now", action: #selector(refreshNow),
@@ -454,7 +587,24 @@ final class MascotController: NSObject {
     // MARK: - Menu actions
 
     func toggleChat() {
+        handleChatToggleShortcut()
+    }
+
+    private func handleChatToggleShortcut() {
+        let now = CACurrentMediaTime()
+        guard now - lastChatToggleAt > chatToggleDebounce else { return }
+        lastChatToggleAt = now
+
+        NSApp.activate(ignoringOtherApps: true)
+        if engine.physics.hiddenEdge != nil {
+            // Snap reveal before resizing so chat can expand past the docked footprint.
+            engine.revealFromEdge(animated: false)
+            syncContentLayout()
+        }
         engine.toggleChat()
+        if model.pose.chatOpen {
+            activateComposer()
+        }
     }
 
     var isChatOpen: Bool { model.pose.chatOpen }
@@ -473,7 +623,9 @@ final class MascotController: NSObject {
         containerView.frame = content.bounds
         hostingView.frame = containerView.bounds
         engine.windowSize = NSSize(width: content.bounds.width, height: content.bounds.height)
-        engine.physics.windowSize = engine.windowSize
+        engine.physics.windowSize = engine.physics.hiddenEdge != nil
+            ? Self.dockedAvatarWindowSize()
+            : engine.windowSize
     }
 
     fileprivate func resizeForChat(open: Bool) {
@@ -482,17 +634,35 @@ final class MascotController: NSObject {
 
         let target = currentWindowSize()
         var frame = panel.frame
-        let sizeChanged = abs(frame.size.width - target.width) > 0.5
-            || abs(frame.size.height - target.height) > 0.5
-        frame.size = target
-        // AppKit origin is bottom-left: keep origin.y fixed so the window grows
-        // upward and the astronaut stays planted on screen.
-        panel.setFrame(frame, display: true, animate: open && sizeChanged)
-        syncContentLayout()
-        engine.physics.windowSize = currentWindowSize()
-        if let visible = (panel.screen ?? NSScreen.main)?.visibleFrame {
-            engine.physics.syncFromWindow(in: visible)
+        let oldSize = frame.size
+        let sizeChanged = abs(oldSize.width - target.width) > 0.5
+            || abs(oldSize.height - target.height) > 0.5
+        guard sizeChanged else {
+            syncContentLayout()
+            return
         }
+
+        let dockedRight = model.pose.peekEdge == .right
+        // Keep the avatar anchored when the window width changes (chat open/close).
+        if target.width < oldSize.width, dockedRight {
+            frame.origin.x += oldSize.width - target.width
+        } else if target.width > oldSize.width, dockedRight {
+            frame.origin.x -= target.width - oldSize.width
+        }
+        engine.physics.preserveAvatarAnchor(
+            oldSize: oldSize,
+            newSize: target,
+            dockedRight: dockedRight
+        )
+        engine.physics.windowSize = target
+        if let visible = (panel.screen ?? NSScreen.main)?.visibleFrame {
+            frame.origin = engine.physics.windowOrigin(in: visible)
+        }
+        frame.size = target
+        // Snap the window — chat panel animates in SwiftUI; animating the NSWindow
+        // reflows the shell and makes the astronaut jump or clip for a frame.
+        panel.setFrame(frame, display: true, animate: false)
+        syncContentLayout()
     }
 
     @objc private func togglePause() {
@@ -503,18 +673,51 @@ final class MascotController: NSObject {
         engine.goHome()
     }
 
-    /// User-initiated only — avoids the system prompt on every launch.
+    /// User-initiated only — never call with `prompt: true` on launch.
     @objc private func requestAccessibilityAccess() {
         let axOpts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(axOpts)
     }
 
+    @objc private func toggleRivalDockDetection() {
+        if rivalDockDetectionEnabled {
+            rivalDockDetectionEnabled = false
+            stopRivalTimer()
+            return
+        }
+        rivalDockDetectionEnabled = true
+        if !AXIsProcessTrusted() {
+            requestAccessibilityAccess()
+        }
+        startRivalTimerIfNeeded()
+    }
+
+    func retryRivalTimerAfterActivation() {
+        startRivalTimerIfNeeded()
+    }
+
+    private func startRivalTimerIfNeeded() {
+        guard rivalDockDetectionEnabled, AXIsProcessTrusted() else { return }
+        guard rivalTimer == nil else { return }
+        let timer = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
+            self?.pollRivalHover()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        rivalTimer = timer
+    }
+
+    private func stopRivalTimer() {
+        rivalTimer?.invalidate()
+        rivalTimer = nil
+        rivalIconFrame = nil
+        rivalIconLogged = false
+        rivalFrameRefreshedAt = 0
+    }
+
     // MARK: - Rival detection (cursor over the ChatGPT Dock icon → Pip gets mad)
     //
-    // We locate the ChatGPT tile in the Dock via the Accessibility API, cache
-    // its on-screen frame, and fume whenever the cursor is over it. Needs
-    // Accessibility permission (prompted at launch); without it AX queries fail
-    // and Pip simply never finds the icon.
+    // Opt-in easter egg: walks the Dock AX tree to find ChatGPT/Codex tiles.
+    // Dragging a rival icon onto Pip still works without accessibility.
 
     private var rivalIconFrame: CGRect?                       // ChatGPT Dock tile, AppKit (bottom-left) coords
     private var rivalFrameRefreshedAt: TimeInterval = 0
@@ -618,7 +821,13 @@ final class MascotController: NSObject {
     }
 
     @objc private func openChat() {
-        engine.toggleChat()
+        handleChatToggleShortcut()
+    }
+
+    @objc private func openNativeVibeIDE() {
+        Task { @MainActor in
+            NativeVibeWindowController.shared.open()
+        }
     }
 
     @objc private func setPin(_ sender: NSMenuItem) {
@@ -669,21 +878,73 @@ final class MascotController: NSObject {
     }
 
     func avatarDragChanged() {
+        let wasDocked = engine.physics.hiddenEdge != nil
         engine.physics.updateDrag(mouse: NSEvent.mouseLocation)
+        if engine.physics.hiddenEdge != nil, !wasDocked {
+            engine.suppressChatForDock()
+            resizeForEdgeDock()
+        }
     }
 
     func avatarDragEnded() {
         let result = engine.physics.endDrag()
-        if result.tappedHiddenEdge, let visible = engine.physics.visibleFrameProvider?() {
-            engine.physics.revealHiddenEdge(in: visible)
-            activateComposer()
-        } else if result.tappedAvatar {
-            if model.pose.chatOpen {
-                toggleChatMode()
-            } else {
-                engine.toggleChat()
-            }
+        guard result.wasDrag else { return }
+        if engine.physics.hiddenEdge == nil,
+           let visible = engine.physics.visibleFrameProvider?() {
+            engine.physics.tuckToNearestEdge(in: visible)
         }
+        engine.suppressChatForDock()
+        resizeForEdgeDock()
+    }
+
+    func avatarSingleTap() {
+        pendingAvatarSingleTap?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.handleAvatarSingleTap()
+        }
+        pendingAvatarSingleTap = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + avatarSingleTapDelay, execute: work)
+    }
+
+    func avatarDoubleTap() {
+        pendingAvatarSingleTap?.cancel()
+        pendingAvatarSingleTap = nil
+        handleAvatarDoubleTap()
+    }
+
+    private func handleAvatarSingleTap() {
+        pendingAvatarSingleTap = nil
+        guard engine.physics.hiddenEdge != nil else { return }
+        engine.revealFromEdge(animated: true)
+        resizeForChat(open: false)
+    }
+
+    private func handleAvatarDoubleTap() {
+        handleChatToggleShortcut()
+    }
+
+    /// Shrink to avatar-only footprint when tucked to a screen edge.
+    private func resizeForEdgeDock() {
+        guard engine.physics.hiddenEdge != nil,
+              let visible = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
+        let target = Self.dockedAvatarWindowSize()
+        let oldFrame = panel.frame
+        guard abs(oldFrame.width - target.width) > 0.5
+            || abs(oldFrame.height - target.height) > 0.5 else {
+            syncContentLayout()
+            return
+        }
+
+        engine.physics.windowSize = target
+        engine.windowSize = target
+
+        var frame = oldFrame
+        frame.size = target
+        frame.origin.y = oldFrame.minY
+        frame.origin.x = engine.physics.windowOrigin(in: visible).x
+        panel.setFrame(frame, display: true)
+        syncContentLayout()
+        engine.physics.syncFromWindow(in: visible)
     }
 }
 

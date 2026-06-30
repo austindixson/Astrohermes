@@ -60,15 +60,6 @@ struct Pose: Equatable {
     var isDraggingAgent = false
 }
 
-/// A single message in Pip's inline chat bubble.
-struct ChatBubbleMessage: Equatable, Identifiable {
-    let id = UUID()
-    let text: String
-    let isUser: Bool
-    /// Full Hermes TUI transcript (tool traces, diffs, boxed replies).
-    var isHermesTranscript = false
-}
-
 @Observable
 final class PoseModel {
     var pose = Pose()
@@ -264,6 +255,18 @@ final class WalkEngine: NSObject {
         physics.goHome(in: visible)
     }
 
+    func tuckToNearestEdge() {
+        guard let visible = visibleFrameProvider?() else { return }
+        physics.tuckToNearestEdge(in: visible)
+    }
+
+    func revealFromEdge(animated: Bool = true) {
+        guard let visible = visibleFrameProvider?() else { return }
+        guard let edge = physics.hiddenEdge else { return }
+        let pos = physics.revealedPosition(for: edge, in: visible)
+        physics.setPosition(x: pos.x, y: pos.y, hiddenEdge: nil, animate: animated, in: visible)
+    }
+
     init(store: UsageStore, model: PoseModel) {
         self.store = store
         self.model = model
@@ -378,7 +381,9 @@ final class WalkEngine: NSObject {
         guard visible.width > 10 else { return }
         lastVisible = visible
 
-        physics.windowSize = windowSize
+        physics.windowSize = physics.hiddenEdge != nil
+            ? OnscreenAgentPhysics.dockedWindowSize
+            : windowSize
         physics.tick(dt: dt, now: now)
         x = physics.windowOrigin(in: visible).x
 
@@ -716,12 +721,48 @@ final class WalkEngine: NSObject {
 
     var chatExtraHeight: CGFloat { 0 }
 
+    private var pendingLiveTranscript: String?
+    private var liveTranscriptFlushWorkItem: DispatchWorkItem?
+    private static let liveTranscriptMinInterval: TimeInterval = 0.2
+
+    private func scheduleLiveTranscriptUpdate(_ raw: String) {
+        pendingLiveTranscript = raw
+        guard liveTranscriptFlushWorkItem == nil else { return }
+
+        applyLiveTranscript(raw)
+
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.liveTranscriptFlushWorkItem = nil
+            if let pending = self.pendingLiveTranscript {
+                self.applyLiveTranscript(pending)
+            }
+        }
+        liveTranscriptFlushWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.liveTranscriptMinInterval, execute: work)
+    }
+
+    private func applyLiveTranscript(_ raw: String) {
+        var pose = model.pose
+        guard pose.chatOpen, pose.chatDisplayMode == .full else { return }
+        guard pose.chatLiveTranscript != raw else { return }
+        pose.chatLiveTranscript = raw
+        pose.chatStatusText = "Hermes running…"
+        model.pose = pose
+    }
+
+    private func clearLiveTranscriptThrottle() {
+        liveTranscriptFlushWorkItem?.cancel()
+        liveTranscriptFlushWorkItem = nil
+        pendingLiveTranscript = nil
+    }
+
     func toggleChat() {
         let newState = !model.pose.chatOpen
         var pose = model.pose
         pose.chatOpen = newState
         if newState {
-            pose.chatDisplayMode = .compact
+            pose.chatDisplayMode = .full
         } else {
             pose.chatMessages = []
             pose.chatLiveTranscript = nil
@@ -735,6 +776,20 @@ final class WalkEngine: NSObject {
         }
         model.pose = pose
         NotificationCenter.default.post(name: .pipChatResize, object: newState)
+    }
+
+    /// Hide chat when tucking to a screen edge — keep thread state for later restore.
+    func suppressChatForDock() {
+        guard model.pose.chatOpen else { return }
+        var pose = model.pose
+        pose.chatOpen = false
+        pose.chatLiveTranscript = nil
+        pose.chatStatusText = nil
+        pose.chatTraceActive = false
+        pose.chatLoading = false
+        pose.uiBubblePhase = .visible
+        model.pose = pose
+        NotificationCenter.default.post(name: .pipChatResize, object: false)
     }
 
     func expandChat() {
@@ -785,6 +840,7 @@ final class WalkEngine: NSObject {
 
     func stopChat() {
         HermesChatClient.shared.cancel()
+        clearLiveTranscriptThrottle()
         var pose = model.pose
         pose.chatLoading = false
         pose.chatStatusText = nil
@@ -832,10 +888,10 @@ final class WalkEngine: NSObject {
         let verbose = pose.chatDisplayMode == .full
         pose.chatMessages.append(ChatBubbleMessage(text: trimmed, isUser: true))
         pose.chatLoading = true
-        pose.chatStatusText = verbose ? "Hermes running…" : "Thinking…"
+        pose.chatStatusText = verbose ? nil : "Thinking…"
         pose.compactAssistantText = "Thinking…"
-        pose.chatTraceActive = true
-        pose.chatLiveTranscript = verbose ? "" : nil
+        pose.chatTraceActive = !verbose
+        pose.chatLiveTranscript = nil
         pose.uiBubblePhase = .visible
         model.pose = pose
         NotificationCenter.default.post(name: .pipChatResize, object: false)
@@ -843,14 +899,7 @@ final class WalkEngine: NSObject {
         HermesChatClient.shared.send(
             trimmed,
             verbose: verbose,
-            onRawOutput: { [weak self] raw in
-                guard let self else { return }
-                var pose = self.model.pose
-                guard pose.chatOpen, pose.chatDisplayMode == .full else { return }
-                pose.chatLiveTranscript = raw
-                pose.chatStatusText = "Hermes running…"
-                self.model.pose = pose
-            },
+            onRawOutput: nil,
             onPartial: { [weak self] chunk in
                 guard let self, let chunk else { return }
                 var pose = self.model.pose
@@ -864,6 +913,7 @@ final class WalkEngine: NSObject {
             }
         ) { [weak self] result in
             guard let self else { return }
+            self.clearLiveTranscriptThrottle()
             var pose = self.model.pose
             pose.chatLoading = false
             pose.chatStatusText = nil
@@ -874,8 +924,10 @@ final class WalkEngine: NSObject {
                 let full = response.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !full.isEmpty {
                     if verbose {
+                        let reply = HermesTranscriptParser.replyText(from: full)
+                        guard !reply.isEmpty else { break }
                         pose.chatMessages.append(
-                            ChatBubbleMessage(text: full, isUser: false, isHermesTranscript: true)
+                            ChatBubbleMessage(text: reply, isUser: false, isHermesTranscript: true)
                         )
                     } else {
                         let compact = HermesChatClient.compactReply(full)

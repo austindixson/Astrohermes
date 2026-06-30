@@ -18,6 +18,7 @@
 		AB20000000000000000000_09 /* WalkEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_09 /* WalkEngine.swift */; };
 		AB20000000000000000000_10 /* MascotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_10 /* MascotView.swift */; };
 		AB20000000000000000000_11 /* MascotController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_11 /* MascotController.swift */; };
+		AB20000000000000000000_277 /* CommandKHotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_277 /* CommandKHotKey.swift */; };
 		AB20000000000000000000_18 /* walk-right-f0.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_18 /* walk-right-f0.png */; };
 		AB20000000000000000000_19 /* walk-right-f1.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_19 /* walk-right-f1.png */; };
 		AB20000000000000000000_20 /* walk-right-f2.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_20 /* walk-right-f2.png */; };
@@ -269,6 +270,54 @@
 		AB20000000000000000000_269 /* SpaceAgentShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_269 /* SpaceAgentShellView.swift */; };
 		AB20000000000000000000_273 /* OnscreenAgentPhysics.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_273 /* OnscreenAgentPhysics.swift */; };
 		AB20000000000000000000_276 /* HermesSlashCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_276 /* HermesSlashCatalog.swift */; };
+		AB20000000000000000000_300 /* NativeVibeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_300 /* NativeVibeTypes.swift */; };
+		AB20000000000000000000_301 /* NativeVibeTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_301 /* NativeVibeTheme.swift */; };
+		AB20000000000000000000_302 /* NativeVibeCanvasStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_302 /* NativeVibeCanvasStore.swift */; };
+		AB20000000000000000000_303 /* NativeVibePTYSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_303 /* NativeVibePTYSession.swift */; };
+		AB20000000000000000000_304 /* NativeVibeMemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_304 /* NativeVibeMemoryStore.swift */; };
+		AB20000000000000000000_305 /* NativeVibeVoiceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_305 /* NativeVibeVoiceCoordinator.swift */; };
+		AB20000000000000000000_306 /* NativeVibeTileViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_306 /* NativeVibeTileViews.swift */; };
+		AB20000000000000000000_307 /* NativeVibeCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_307 /* NativeVibeCanvasView.swift */; };
+		AB20000000000000000000_308 /* NativeVibeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_308 /* NativeVibeRootView.swift */; };
+		AB20000000000000000000_309 /* NativeVibeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_309 /* NativeVibeWindowController.swift */; };
+		AB20000000000000000000_310 /* NativeVibeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_310 /* NativeVibeBridge.swift */; };
+		AB20000000000000000000_311 /* ChatTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_311 /* ChatTypes.swift */; };
+		AB20000000000000000000_312 /* NativeVibeSwiftTermView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_312 /* NativeVibeSwiftTermView.swift */; };
+		AB20000000000000000000_313 /* NativeVibeParakeetTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_313 /* NativeVibeParakeetTranscriber.swift */; };
+		AB20000000000000000000_314 /* NativeVibeRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_314 /* NativeVibeRuntime.swift */; };
+		AB20000000000000000000_315 /* NativeVibeAccessibleTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_315 /* NativeVibeAccessibleTextField.swift */; };
+		AB20000000000000000000_420 /* NativeVibeAccessibleTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_315 /* NativeVibeAccessibleTextField.swift */; };
+		AB20000000000000000000_316 /* NativeVibeOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_316 /* NativeVibeOrchestrator.swift */; };
+		AB20000000000000000000_425 /* NativeVibeAgentRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_425 /* NativeVibeAgentRunner.swift */; };
+		AB20000000000000000000_426 /* NativeVibeAgentRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_425 /* NativeVibeAgentRunner.swift */; };
+		AB20000000000000000000_427 /* NativeVibePTYSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_303 /* NativeVibePTYSession.swift */; };
+		AB20000000000000000000_317 /* NativeVibeLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_317 /* NativeVibeLayoutEngine.swift */; };
+		AB20000000000000000000_318 /* NativeVibeBrowserTileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_318 /* NativeVibeBrowserTileView.swift */; };
+		AB20000000000000000000_421 /* NativeVibeOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_316 /* NativeVibeOrchestrator.swift */; };
+		AB20000000000000000000_422 /* NativeVibeLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_317 /* NativeVibeLayoutEngine.swift */; };
+		AB20000000000000000000_423 /* NativeVibeBrowserTileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_318 /* NativeVibeBrowserTileView.swift */; };
+		AB20000000000000000000_319 /* NativeVibeParakeetRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_319 /* NativeVibeParakeetRecorder.swift */; };
+		AB20000000000000000000_424 /* NativeVibeParakeetRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_319 /* NativeVibeParakeetRecorder.swift */; };
+		AB20000000000000000000_315 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = AB90000000000000000000_02 /* SwiftTerm */; };
+		AB20000000000000000000_401 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_401 /* main.swift */; };
+		AB20000000000000000000_402 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_402 /* AppDelegate.swift */; };
+		AB20000000000000000000_403 /* ChatTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_311 /* ChatTypes.swift */; };
+		AB20000000000000000000_404 /* HermesChatClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_143 /* HermesChatClient.swift */; };
+		AB20000000000000000000_405 /* HermesSlashCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_276 /* HermesSlashCatalog.swift */; };
+		AB20000000000000000000_406 /* NativeVibeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_300 /* NativeVibeTypes.swift */; };
+		AB20000000000000000000_407 /* NativeVibeTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_301 /* NativeVibeTheme.swift */; };
+		AB20000000000000000000_408 /* NativeVibeCanvasStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_302 /* NativeVibeCanvasStore.swift */; };
+		AB20000000000000000000_409 /* NativeVibeMemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_304 /* NativeVibeMemoryStore.swift */; };
+		AB20000000000000000000_410 /* NativeVibeVoiceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_305 /* NativeVibeVoiceCoordinator.swift */; };
+		AB20000000000000000000_411 /* NativeVibeTileViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_306 /* NativeVibeTileViews.swift */; };
+		AB20000000000000000000_412 /* NativeVibeCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_307 /* NativeVibeCanvasView.swift */; };
+		AB20000000000000000000_413 /* NativeVibeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_308 /* NativeVibeRootView.swift */; };
+		AB20000000000000000000_414 /* NativeVibeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_309 /* NativeVibeWindowController.swift */; };
+		AB20000000000000000000_415 /* NativeVibeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_310 /* NativeVibeBridge.swift */; };
+		AB20000000000000000000_416 /* NativeVibeSwiftTermView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_312 /* NativeVibeSwiftTermView.swift */; };
+		AB20000000000000000000_417 /* NativeVibeParakeetTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_313 /* NativeVibeParakeetTranscriber.swift */; };
+		AB20000000000000000000_418 /* NativeVibeRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_314 /* NativeVibeRuntime.swift */; };
+		AB20000000000000000000_419 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = AB90000000000000000000_02 /* SwiftTerm */; };
 		AB20000000000000000000_274 /* astronaut_no_bg.webp in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_274 /* astronaut_no_bg.webp */; };
 		AB20000000000000000000_275 /* helmet_no_bg_256.webp in Resources */ = {isa = PBXBuildFile; fileRef = AB10000000000000000000_275 /* helmet_no_bg_256.webp */; };
 /* Begin PBXFileReference section */
@@ -283,6 +332,7 @@
 		AB10000000000000000000_09 /* WalkEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkEngine.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_10 /* MascotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MascotView.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_11 /* MascotController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MascotController.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_277 /* CommandKHotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandKHotKey.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_18 /* walk-right-f0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "walk-right-f0.png"; sourceTree = "<group>"; };
 		AB10000000000000000000_19 /* walk-right-f1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "walk-right-f1.png"; sourceTree = "<group>"; };
 		AB10000000000000000000_20 /* walk-right-f2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "walk-right-f2.png"; sourceTree = "<group>"; };
@@ -411,6 +461,30 @@
 		AB10000000000000000000_269 /* SpaceAgentShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceAgentShellView.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_273 /* OnscreenAgentPhysics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnscreenAgentPhysics.swift; sourceTree = "<group>"; };
 		AB10000000000000000000_276 /* HermesSlashCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesSlashCatalog.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_300 /* NativeVibeTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeTypes.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_301 /* NativeVibeTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeTheme.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_302 /* NativeVibeCanvasStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeCanvasStore.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_303 /* NativeVibePTYSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibePTYSession.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_304 /* NativeVibeMemoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeMemoryStore.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_305 /* NativeVibeVoiceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeVoiceCoordinator.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_306 /* NativeVibeTileViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeTileViews.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_307 /* NativeVibeCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeCanvasView.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_308 /* NativeVibeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeRootView.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_309 /* NativeVibeWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeWindowController.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_310 /* NativeVibeBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeBridge.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_311 /* ChatTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTypes.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_312 /* NativeVibeSwiftTermView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeSwiftTermView.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_313 /* NativeVibeParakeetTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeParakeetTranscriber.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_314 /* NativeVibeRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeRuntime.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_315 /* NativeVibeAccessibleTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeAccessibleTextField.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_316 /* NativeVibeOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeOrchestrator.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_425 /* NativeVibeAgentRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeAgentRunner.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_317 /* NativeVibeLayoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeLayoutEngine.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_318 /* NativeVibeBrowserTileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeBrowserTileView.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_319 /* NativeVibeParakeetRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVibeParakeetRecorder.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_401 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		AB10000000000000000000_402 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		AB30000000000000000000_02 /* NativeVibe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NativeVibe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB10000000000000000000_274 /* astronaut_no_bg.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = "astronaut_no_bg.webp"; sourceTree = "<group>"; };
 		AB10000000000000000000_275 /* helmet_no_bg_256.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = "helmet_no_bg_256.webp"; sourceTree = "<group>"; };
 		AB10000000000000000000_144 /* rocky-air-0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "rocky-air-0.png"; sourceTree = "<group>"; };
@@ -542,6 +616,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AB20000000000000000000_315 /* SwiftTerm in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB60000000000000000000_05 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB20000000000000000000_419 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -552,6 +635,7 @@
 			isa = PBXGroup;
 			children = (
 				AB40000000000000000000_02 /* Pip */,
+				AB40000000000000000000_06 /* NativeVibeApp */,
 				AB40000000000000000000_03 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -559,9 +643,11 @@
 		AB40000000000000000000_02 /* Pip */ = {
 			isa = PBXGroup;
 			children = (
+				AB10000000000000000000_311 /* ChatTypes.swift */,
 				AB10000000000000000000_01 /* main.swift */,
 				AB10000000000000000000_02 /* AppDelegate.swift */,
 				AB10000000000000000000_11 /* MascotController.swift */,
+				AB10000000000000000000_277 /* CommandKHotKey.swift */,
 				AB10000000000000000000_09 /* WalkEngine.swift */,
 				AB10000000000000000000_10 /* MascotView.swift */,
 				AB10000000000000000000_03 /* Mood.swift */,
@@ -573,11 +659,39 @@
 				AB10000000000000000000_269 /* SpaceAgentShellView.swift */,
 				AB10000000000000000000_273 /* OnscreenAgentPhysics.swift */,
 				AB10000000000000000000_276 /* HermesSlashCatalog.swift */,
+				AB40000000000000000000_05 /* NativeVibe */,
 				AB10000000000000000000_06 /* CredentialsProvider.swift */,
 				AB10000000000000000000_04 /* JSONProbe.swift */,
 				AB40000000000000000000_04 /* Assets */,
 			);
 			path = Pip;
+			sourceTree = "<group>";
+		};
+		AB40000000000000000000_05 /* NativeVibe */ = {
+			isa = PBXGroup;
+			children = (
+				AB10000000000000000000_300 /* NativeVibeTypes.swift */,
+				AB10000000000000000000_301 /* NativeVibeTheme.swift */,
+				AB10000000000000000000_302 /* NativeVibeCanvasStore.swift */,
+				AB10000000000000000000_303 /* NativeVibePTYSession.swift */,
+				AB10000000000000000000_304 /* NativeVibeMemoryStore.swift */,
+				AB10000000000000000000_305 /* NativeVibeVoiceCoordinator.swift */,
+				AB10000000000000000000_306 /* NativeVibeTileViews.swift */,
+				AB10000000000000000000_307 /* NativeVibeCanvasView.swift */,
+				AB10000000000000000000_308 /* NativeVibeRootView.swift */,
+				AB10000000000000000000_309 /* NativeVibeWindowController.swift */,
+				AB10000000000000000000_310 /* NativeVibeBridge.swift */,
+				AB10000000000000000000_312 /* NativeVibeSwiftTermView.swift */,
+				AB10000000000000000000_313 /* NativeVibeParakeetTranscriber.swift */,
+				AB10000000000000000000_314 /* NativeVibeRuntime.swift */,
+				AB10000000000000000000_315 /* NativeVibeAccessibleTextField.swift */,
+				AB10000000000000000000_316 /* NativeVibeOrchestrator.swift */,
+				AB10000000000000000000_425 /* NativeVibeAgentRunner.swift */,
+				AB10000000000000000000_317 /* NativeVibeLayoutEngine.swift */,
+				AB10000000000000000000_318 /* NativeVibeBrowserTileView.swift */,
+				AB10000000000000000000_319 /* NativeVibeParakeetRecorder.swift */,
+			);
+			path = NativeVibe;
 			sourceTree = "<group>";
 		};
 		AB40000000000000000000_04 /* Assets */ = {
@@ -833,10 +947,20 @@
 			path = Assets;
 			sourceTree = "<group>";
 		};
+		AB40000000000000000000_06 /* NativeVibeApp */ = {
+			isa = PBXGroup;
+			children = (
+				AB10000000000000000000_401 /* main.swift */,
+				AB10000000000000000000_402 /* AppDelegate.swift */,
+			);
+			path = NativeVibeApp;
+			sourceTree = "<group>";
+		};
 		AB40000000000000000000_03 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				AB30000000000000000000_01 /* Pip.app */,
+				AB30000000000000000000_02 /* NativeVibe.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -857,8 +981,30 @@
 			dependencies = (
 			);
 			name = Pip;
+			packageProductDependencies = (
+				AB90000000000000000000_02 /* SwiftTerm */,
+			);
 			productName = Pip;
 			productReference = AB30000000000000000000_01 /* Pip.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AB50000000000000000000_03 /* NativeVibe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB70000000000000000000_03 /* Build configuration list for PBXNativeTarget "NativeVibe" */;
+			buildPhases = (
+				AB60000000000000000000_04 /* Sources */,
+				AB60000000000000000000_05 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NativeVibe;
+			packageProductDependencies = (
+				AB90000000000000000000_02 /* SwiftTerm */,
+			);
+			productName = NativeVibe;
+			productReference = AB30000000000000000000_02 /* NativeVibe.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -874,6 +1020,9 @@
 					AB50000000000000000000_01 = {
 						CreatedOnToolsVersion = 15.0;
 					};
+					AB50000000000000000000_03 = {
+						CreatedOnToolsVersion = 15.0;
+					};
 				};
 			};
 			buildConfigurationList = AB70000000000000000000_01 /* Build configuration list for PBXProject "Pip" */;
@@ -885,11 +1034,15 @@
 				Base,
 			);
 			mainGroup = AB40000000000000000000_01;
+			packageReferences = (
+				AB90000000000000000000_01 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+			);
 			productRefGroup = AB40000000000000000000_03 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				AB50000000000000000000_01 /* Pip */,
+				AB50000000000000000000_03 /* NativeVibe */,
 			);
 		};
 /* End PBXProject section */
@@ -1166,11 +1319,65 @@
 				AB20000000000000000000_09 /* WalkEngine.swift in Sources */,
 				AB20000000000000000000_10 /* MascotView.swift in Sources */,
 				AB20000000000000000000_11 /* MascotController.swift in Sources */,
+				AB20000000000000000000_277 /* CommandKHotKey.swift in Sources */,
 				AB20000000000000000000_143 /* HermesChatClient.swift in Sources */,
 				AB20000000000000000000_268 /* SpaceAgentChatUI.swift in Sources */,
 				AB20000000000000000000_269 /* SpaceAgentShellView.swift in Sources */,
 				AB20000000000000000000_273 /* OnscreenAgentPhysics.swift in Sources */,
 				AB20000000000000000000_276 /* HermesSlashCatalog.swift in Sources */,
+				AB20000000000000000000_300 /* NativeVibeTypes.swift in Sources */,
+				AB20000000000000000000_301 /* NativeVibeTheme.swift in Sources */,
+				AB20000000000000000000_302 /* NativeVibeCanvasStore.swift in Sources */,
+				AB20000000000000000000_303 /* NativeVibePTYSession.swift in Sources */,
+				AB20000000000000000000_304 /* NativeVibeMemoryStore.swift in Sources */,
+				AB20000000000000000000_305 /* NativeVibeVoiceCoordinator.swift in Sources */,
+				AB20000000000000000000_306 /* NativeVibeTileViews.swift in Sources */,
+				AB20000000000000000000_307 /* NativeVibeCanvasView.swift in Sources */,
+				AB20000000000000000000_308 /* NativeVibeRootView.swift in Sources */,
+				AB20000000000000000000_309 /* NativeVibeWindowController.swift in Sources */,
+				AB20000000000000000000_310 /* NativeVibeBridge.swift in Sources */,
+				AB20000000000000000000_311 /* ChatTypes.swift in Sources */,
+				AB20000000000000000000_312 /* NativeVibeSwiftTermView.swift in Sources */,
+				AB20000000000000000000_313 /* NativeVibeParakeetTranscriber.swift in Sources */,
+				AB20000000000000000000_314 /* NativeVibeRuntime.swift in Sources */,
+				AB20000000000000000000_420 /* NativeVibeAccessibleTextField.swift in Sources */,
+				AB20000000000000000000_316 /* NativeVibeOrchestrator.swift in Sources */,
+				AB20000000000000000000_425 /* NativeVibeAgentRunner.swift in Sources */,
+				AB20000000000000000000_317 /* NativeVibeLayoutEngine.swift in Sources */,
+				AB20000000000000000000_318 /* NativeVibeBrowserTileView.swift in Sources */,
+				AB20000000000000000000_319 /* NativeVibeParakeetRecorder.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB60000000000000000000_04 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB20000000000000000000_401 /* main.swift in Sources */,
+				AB20000000000000000000_402 /* AppDelegate.swift in Sources */,
+				AB20000000000000000000_403 /* ChatTypes.swift in Sources */,
+				AB20000000000000000000_404 /* HermesChatClient.swift in Sources */,
+				AB20000000000000000000_405 /* HermesSlashCatalog.swift in Sources */,
+				AB20000000000000000000_406 /* NativeVibeTypes.swift in Sources */,
+				AB20000000000000000000_407 /* NativeVibeTheme.swift in Sources */,
+				AB20000000000000000000_408 /* NativeVibeCanvasStore.swift in Sources */,
+				AB20000000000000000000_409 /* NativeVibeMemoryStore.swift in Sources */,
+				AB20000000000000000000_410 /* NativeVibeVoiceCoordinator.swift in Sources */,
+				AB20000000000000000000_411 /* NativeVibeTileViews.swift in Sources */,
+				AB20000000000000000000_412 /* NativeVibeCanvasView.swift in Sources */,
+				AB20000000000000000000_413 /* NativeVibeRootView.swift in Sources */,
+				AB20000000000000000000_414 /* NativeVibeWindowController.swift in Sources */,
+				AB20000000000000000000_415 /* NativeVibeBridge.swift in Sources */,
+				AB20000000000000000000_416 /* NativeVibeSwiftTermView.swift in Sources */,
+				AB20000000000000000000_417 /* NativeVibeParakeetTranscriber.swift in Sources */,
+				AB20000000000000000000_418 /* NativeVibeRuntime.swift in Sources */,
+				AB20000000000000000000_420 /* NativeVibeAccessibleTextField.swift in Sources */,
+				AB20000000000000000000_421 /* NativeVibeOrchestrator.swift in Sources */,
+				AB20000000000000000000_426 /* NativeVibeAgentRunner.swift in Sources */,
+				AB20000000000000000000_422 /* NativeVibeLayoutEngine.swift in Sources */,
+				AB20000000000000000000_423 /* NativeVibeBrowserTileView.swift in Sources */,
+				AB20000000000000000000_424 /* NativeVibeParakeetRecorder.swift in Sources */,
+				AB20000000000000000000_427 /* NativeVibePTYSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1242,6 +1449,8 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "NativeVibe uses the microphone for voice-controlled coding.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "NativeVibe transcribes voice commands to control agents and tiles.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1266,6 +1475,8 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "NativeVibe uses the microphone for voice-controlled coding.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "NativeVibe transcribes voice commands to control agents and tiles.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1274,6 +1485,56 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "dev.local.pip-mascot";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		AB80000000000000000000_05 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "NativeVibe uses the microphone for voice-controlled coding.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "NativeVibe transcribes voice commands to control agents and tiles.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "dev.local.nativevibe";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AB80000000000000000000_06 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "NativeVibe uses the microphone for voice-controlled coding.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "NativeVibe transcribes voice commands to control agents and tiles.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "dev.local.nativevibe";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -1301,7 +1562,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		AB70000000000000000000_03 /* Build configuration list for PBXNativeTarget "NativeVibe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB80000000000000000000_05 /* Debug */,
+				AB80000000000000000000_06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AB90000000000000000000_01 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AB90000000000000000000_02 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AB90000000000000000000_01 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AB50000000000000000000_02 /* Project object */;
 }

@@ -1,0 +1,6 @@
+name: nativevibe
+version: 1.0.0
+description: "NativeVibe macOS IDE control — spawn canvas window, manage tiles, agent/terminal I/O, on-demand memory, and voice via file-bridge IPC."
+author: ghost
+provides_tools:
+  - nativevibe

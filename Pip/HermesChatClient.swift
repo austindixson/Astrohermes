@@ -106,7 +106,17 @@ final class HermesChatClient {
         workQueue.async { [weak self] in
             guard let self else { return }
 
-            let hermesPath = self.findHermes() ?? "hermes"
+            guard let hermesPath = self.findHermes() else {
+                DispatchQueue.main.async {
+                    completion(.failure(NSError(
+                        domain: "HermesChat",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Hermes CLI not found. Install with: pip install hermes-agent"]
+                    )))
+                }
+                return
+            }
+
             let fullPrompt = Self.preparePrompt(for: trimmed, verbose: verbose)
 
             self.stateLock.lock()
@@ -114,26 +124,25 @@ final class HermesChatClient {
             let cwd = self.workingDirectory
             self.stateLock.unlock()
 
-            var command = "\(hermesPath) chat -q \(self.quote(fullPrompt)) --source pip"
+            var args = ["chat", "-q", fullPrompt, "--source", "pip"]
             if !verbose {
-                command += " --quiet"
+                args.append("--quiet")
             }
             if let resumeID {
-                command += " --resume \(self.quote(resumeID))"
+                args.append(contentsOf: ["--resume", resumeID])
             }
-            command += " 2>&1"
 
             let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/bash")
-            process.arguments = ["-lc", command]
+            process.executableURL = URL(fileURLWithPath: hermesPath)
+            process.arguments = args
+            process.environment = Self.processEnvironment()
             if let cwd, FileManager.default.fileExists(atPath: cwd, isDirectory: nil) {
                 process.currentDirectoryURL = URL(fileURLWithPath: cwd)
             }
 
             let out = Pipe()
-            let err = Pipe()
             process.standardOutput = out
-            process.standardError = err
+            process.standardError = out
 
             self.currentProcess = process
 
@@ -169,13 +178,20 @@ final class HermesChatClient {
             out.fileHandleForReading.readabilityHandler = nil
 
             let tailData = out.fileHandleForReading.readDataToEndOfFile()
-            let errorData = err.fileHandleForReading.readDataToEndOfFile()
 
             if process.terminationStatus != 0 {
-                let errStr = String(data: errorData, encoding: .utf8) ?? "unknown error"
+                partialLock.lock()
+                if let tail = String(data: tailData, encoding: .utf8), !tail.isEmpty {
+                    accumulated += tail
+                }
+                let errStr = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+                partialLock.unlock()
                 DispatchQueue.main.async {
-                    completion(.failure(NSError(domain: "HermesChat", code: Int(process.terminationStatus),
-                        userInfo: [NSLocalizedDescriptionKey: errStr])))
+                    completion(.failure(NSError(
+                        domain: "HermesChat",
+                        code: Int(process.terminationStatus),
+                        userInfo: [NSLocalizedDescriptionKey: errStr.isEmpty ? "Hermes exited with an error." : errStr]
+                    )))
                 }
                 return
             }
@@ -291,11 +307,29 @@ final class HermesChatClient {
         normalizeTerminalOutput(raw).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Live-streaming transcript — preserve partial output; only strip ANSI and collapse `\r`.
+    static func transcriptStreamText(from raw: String) -> String {
+        normalizeTerminalOutput(raw)
+    }
+
     static func normalizeTerminalOutput(_ raw: String) -> String {
         var text = stripANSI(raw)
         text = text.replacingOccurrences(of: "\r\n", with: "\n")
-        text = text.replacingOccurrences(of: "\r", with: "\n")
+        text = collapseCarriageReturns(text)
         return text
+    }
+
+    /// Hermes TUI overwrites in-place status lines with `\r`; keep only the latest segment.
+    private static func collapseCarriageReturns(_ text: String) -> String {
+        text
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { chunk -> String in
+                let line = String(chunk)
+                guard line.contains("\r") else { return line }
+                let parts = line.split(separator: "\r", omittingEmptySubsequences: false)
+                return String(parts.last ?? Substring(line))
+            }
+            .joined(separator: "\n")
     }
 
     static func stripANSI(_ text: String) -> String {
@@ -632,21 +666,61 @@ final class HermesChatClient {
     private func findHermes() -> String? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let candidates = [
+            "\(home)/.hermes/hermes-agent/.venv/bin/hermes",
             "\(home)/.local/bin/hermes",
             "/opt/homebrew/bin/hermes",
             "/usr/local/bin/hermes",
         ]
         for path in candidates {
-            if FileManager.default.isExecutableFile(atPath: path) {
-                return path
+            if let resolved = Self.resolveHermesExecutable(path) {
+                return resolved
             }
         }
         return nil
     }
 
-    private func quote(_ s: String) -> String {
-        let escaped = s.replacingOccurrences(of: "'", with: "'\\''")
-        return "'\(escaped)'"
+    /// Resolve symlinks and skip session-logging wrappers like hermes-wrap.
+    private static func resolveHermesExecutable(_ path: String) -> String? {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), !isDir.boolValue else {
+            return nil
+        }
+        guard !path.hasSuffix("hermes-wrap") else { return nil }
+
+        let resolved: String
+        if let link = try? FileManager.default.destinationOfSymbolicLink(atPath: path) {
+            resolved = URL(fileURLWithPath: (path as NSString).deletingLastPathComponent)
+                .appendingPathComponent(link)
+                .standardized
+                .path
+        } else {
+            resolved = (path as NSString).standardizingPath
+        }
+
+        guard FileManager.default.isExecutableFile(atPath: resolved),
+              !resolved.hasSuffix("hermes-wrap") else {
+            return nil
+        }
+        return resolved
+    }
+
+    /// GUI apps inherit a minimal PATH — include the venv and ~/.local/bin explicitly.
+    private static func processEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        env["HOME"] = home
+        env["PYTHONUNBUFFERED"] = "1"
+        let prefixes = [
+            "\(home)/.hermes/hermes-agent/.venv/bin",
+            "\(home)/.local/bin",
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+        ]
+        let existing = env["PATH"] ?? ""
+        env["PATH"] = (prefixes + [existing]).joined(separator: ":")
+        return env
     }
 }
 
@@ -672,7 +746,7 @@ enum HermesTranscriptBlock: Equatable, Identifiable {
 enum HermesTranscriptParser {
     private static let boxChars = CharacterSet(charactersIn: "─━│┌┐└┘╭╮╰╯├┤┬┴┼═║╔╗╚╝╠╣╦╩╬ ")
 
-    static func parse(_ raw: String) -> [HermesTranscriptBlock] {
+    static func parse(_ raw: String, live: Bool = false) -> [HermesTranscriptBlock] {
         let text = HermesChatClient.normalizeTerminalOutput(raw)
         guard !text.isEmpty else { return [] }
 
@@ -714,9 +788,11 @@ enum HermesTranscriptParser {
                 || trimmed.hasPrefix("Query:") {
                 continue
             }
-            if trimmed.hasPrefix("Initializing") {
+            if isLoadingStatusLine(trimmed) {
                 flushReply()
-                blocks.append(.status(trimmed))
+                if shouldDisplayLoadingStatus(trimmed) {
+                    blocks.append(.status(trimmed))
+                }
                 continue
             }
             if isHermesBoxTop(trimmed) {
@@ -752,6 +828,106 @@ enum HermesTranscriptParser {
             blocks.append(.sessionMeta(session: sessionId, duration: duration, messages: messageSummary))
         }
 
+        if blocks.isEmpty {
+            return sanitizeBlocks(parseQuietFallback(text), live: live)
+        }
+
+        return sanitizeBlocks(blocks, live: live)
+    }
+
+    /// Final Hermes reply body — strips tool traces, status lines, and session footer.
+    static func replyText(from raw: String) -> String {
+        for block in parse(raw, live: false) {
+            if case .reply(let copy) = block {
+                return copy
+            }
+        }
+        return raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Hermes TUI transient status lines (consumed while parsing; most are hidden in the UI).
+    private static func isLoadingStatusLine(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return false }
+        let lower = trimmed.lowercased()
+        if lower.hasPrefix("initializing") { return true }
+        if startsWithEmoji(trimmed) { return true }
+        if lower.hasSuffix("..."), trimmed.count <= 96, !isToolTrace(trimmed) { return true }
+        return false
+    }
+
+    /// Skip generic init copy — the composer already shows a spinner.
+    private static func shouldDisplayLoadingStatus(_ line: String) -> Bool {
+        !line.trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("initializing")
+    }
+
+    private static func startsWithEmoji(_ line: String) -> Bool {
+        guard let scalar = line.unicodeScalars.first(where: { !$0.properties.isWhitespace }) else { return false }
+        return scalar.properties.isEmojiPresentation || scalar.properties.isEmoji
+    }
+
+    /// Drop stale init/loading status once substantive trace content exists; while loading, keep only the latest verb.
+    private static func sanitizeBlocks(_ blocks: [HermesTranscriptBlock], live: Bool) -> [HermesTranscriptBlock] {
+        let hasSubstantive = blocks.contains {
+            switch $0 {
+            case .toolTrace, .reply: return true
+            default: return false
+            }
+        }
+
+        if hasSubstantive {
+            return blocks.filter {
+                if case .status = $0 { return false }
+                return true
+            }
+        }
+
+        let statuses = blocks.filter {
+            if case .status = $0 { return true }
+            return false
+        }
+        guard statuses.count > 1 else { return blocks }
+
+        guard let lastStatus = statuses.last else { return blocks }
+        let preserved = blocks.filter {
+            if case .status = $0 { return false }
+            return true
+        }
+        return preserved + [lastStatus]
+    }
+
+    /// `--quiet` Hermes output: `session_id: …` header plus plain reply body (no TUI boxes).
+    private static func parseQuietFallback(_ text: String) -> [HermesTranscriptBlock] {
+        let lines = text
+            .components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+
+        var sessionId: String?
+        var replyLines: [String] = []
+        var sawSessionHeader = false
+
+        for line in lines {
+            if line.isEmpty { continue }
+            let lower = line.lowercased()
+            if lower.hasPrefix("session_id:") {
+                sawSessionHeader = true
+                let inline = line.dropFirst("session_id:".count).trimmingCharacters(in: .whitespaces)
+                if !inline.isEmpty { sessionId = inline }
+                continue
+            }
+            if lower.hasPrefix("query:") { continue }
+            replyLines.append(line)
+        }
+
+        guard sawSessionHeader || !replyLines.isEmpty else { return [] }
+
+        var blocks: [HermesTranscriptBlock] = []
+        if !replyLines.isEmpty {
+            blocks.append(.reply(replyLines.joined(separator: "\n")))
+        }
+        if let sessionId {
+            blocks.append(.sessionMeta(session: sessionId, duration: nil, messages: nil))
+        }
         return blocks
     }
 

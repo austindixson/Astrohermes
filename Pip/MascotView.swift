@@ -7,6 +7,9 @@ extension Notification.Name {
     static let pipChatMode = Notification.Name("pipChatMode")
     static let pipFileDrop = Notification.Name("pipFileDrop")
     static let pipComposerHeight = Notification.Name("pipComposerHeight")
+    static let pipComposerPaste = Notification.Name("pipComposerPaste")
+    static let pipComposerFocus = Notification.Name("pipComposerFocus")
+    static let pipComposerTextChanged = Notification.Name("pipComposerTextChanged")
 }
 
 struct MascotRootView: View {
