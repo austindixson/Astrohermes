@@ -11,6 +11,7 @@ enum NativeVibeTheme {
     static let gridLine = Color.white.opacity(0.04)
     static let voiceActive = Color(red: 0.98, green: 0.45, blue: 0.55)
 
+    static let compactBreakpoint: CGFloat = 900
     static let panelRadius: CGFloat = 14
     static let tileRadius: CGFloat = 12
     static let chromePadding: CGFloat = 10
