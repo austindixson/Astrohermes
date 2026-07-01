@@ -32,3 +32,6 @@ build/rocky-fix/
 # Release packaging scratch
 *.zip
 dist/
+
+# Orca session artifacts
+.orca/hermes-session.*
