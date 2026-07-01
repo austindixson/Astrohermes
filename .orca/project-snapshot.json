@@ -1,22 +1,20 @@
 {
-  "analyzedAt" : "2026-07-01T04:27:27Z",
+  "analyzedAt" : "2026-07-01T04:29:24Z",
   "git" : {
     "branch" : "main",
     "dirtyFileCount" : 5,
-    "lastCommitSubject" : "Add compactBreakpoint for three_agents narrow layout",
+    "lastCommitSubject" : "ponytail: remove masksToBounds so mood bubbles render outside window frame",
     "recentCommits" : [
-      "0a59138 Add compactBreakpoint for three_agents narrow layout",
-      "23dce0b Update Orca project metadata after NativeVibe integration",
-      "d09f87e NativeVibe integration: Hermes chat panel, voice input, space agent UI, walk engine improvements"
+      "5073bf1 ponytail: remove masksToBounds so mood bubbles render outside window frame",
+      "23a6b90 chore: refresh Orca project metadata",
+      "0a59138 Add compactBreakpoint for three_agents narrow layout"
     ]
   },
-  "hasPlan" : true,
+  "hasPlan" : false,
   "hasReadme" : true,
   "hasState" : false,
   "incompletePlanItems" : [
-    "Commit the Orca metadata housekeeping — these got regenerated when Orca re-scanned the project. One-liner: `git add .orca\/ && git commit -m \"chore: refresh Orca project metadata\"` then `git push`. (Or just trash `PLAN…",
-    "Fire up Pip and stress-test the NativeVibe integration — the last real code commit (`d09f87e`) added Hermes chat panel, voice input, and space agent UI. Build and launch: `cp -R build\/Build\/Products\/Release\/Pip.app \/A…",
-    "Work on something else entirely — Pip's not broken. Unless you have a specific feature or bug in mind, this project is ready to be shelved until something bites."
+
   ],
   "intelligence" : {
     "architectureMermaid" : "flowchart TB\n  L1[\"1. Shell & View\\nSwiftUI, AppKit\"]\n  L2[\"2. Canvas System\\nSwiftUI, Spatial layout\"]\n  L3[\"3. Orchestrator\\nLLM tool loop, Command dispatch\"]\n  L4[\"4. Agent Runtime\\nPTY, CLI spawn\"]\n  L5[\"5. Utilities\\nPersistence, Git\"]\n  L1 --> L2\n  L2 --> L3\n  L3 --> L4\n  L4 --> L5",
@@ -111,10 +109,9 @@
   "manifestFiles" : [
 
   ],
-  "planExcerpt" : "# Plan\n\n**Status:** Advising — Advisory via Hermes\n\n## Request\nwhat should we do next\n\n## Understanding\nHermes is reviewing your project and drafting next steps.\n\n## Build Plan\n### Next steps (from advisory)\n\n- [ ] Commit the Orca metadata housekeeping — these got regenerated when Orca re-scanned the project. One-liner: `git add .orca\/ && git commit -m \"chore: refresh Orca project metadata\"` then `git push`. (Or just trash `PLAN…\n- [ ] Fire up Pip and stress-test the NativeVibe integration — the last real code commit (`d09f87e`) added Hermes chat panel, voice input, and space agent UI. Build and launch: `cp -R build\/Build\/Products\/Release\/Pip.app \/A…\n- [ ] Work on something else entirely — Pip's not broken. Unless you have a specific feature or bug in mind, this project is ready to be shelved until something bites.\n\n## Tech Stack\n**Languages:** PNG, Swift, WEBP, Python\n**Platforms:** macOS\n\n**Hierarchy** (presentation → core):\n1. **Shell & View** — SwiftUI, AppKit · _OrcaCoderApp, Views, Chrome_\n2. **Canvas System** — SwiftUI, Spatial layout · _InfiniteCanvasView, CanvasGridLayout_\n3. **Orchestrator** — LLM tool loop, Command dispatch · _Orchestrator, BridgeOrchestratorPipeline_\n4. **Agent Runtime** — PTY, CLI spawn · _AgentExecutor, PTYSession_\n5. **Utilities** — Persistence, Git, File I\/O · _PersistenceStore, GitIntegration_\n\n## Dependencies\n- **Platforms:** macOS\n- **Scripts:** `scripts\/` test & automation harness\n\n## User Flow\n1. Open workspace → 2. Assess stack & architecture → 3. Command orchestrator → 4. Execute → 5. Verify\n\n## Architecture\n```mermaid\nflowchart TB\n  L1[\"1. Shell & View\\nSwiftUI, AppKit\"]\n  L2[\"2. Canvas System\\nSwiftUI, Spatial layout\"]\n  L3[\"3. Orchestrator\\nLLM tool loop, Command dispatch\"]\n  L4[\"4. Agent Runtime\\nPTY, CLI spawn\"]\n  L5[\"5. Utilities\\nPersistence, Git\"]\n  L1 --> L2\n  L2 --> L3\n  L3 --> L4\n  L4 --> L5\n```",
   "projectKind" : "xcode",
   "readmeExcerpt" : "# Pip 🐾\n\nA cute, transparent desktop mascot for macOS that **walks along the bottom edge of your\nscreen** with a real walk cycle, and changes mood based on your **live Claude Code\nusage** — pulled from your logged-in Claude session. No API key, no cloud account, no\nbilling, no third-party dependencies. Everything stays on your machine.\n\nPip's goal is to help you **maximize your 5-hour window without wasting quota at reset**.\nHe doesn't panic as the reset approaches — he gets antsy when you're *under*-using your\nquota, and only worries when you're about to hit the cap.\n\n---\n\n## ⚡️ One-shot setup (recommended)\n\n**Copy the block below and paste it into [Claude Code](https:\/\/claude.com\/claude-code).**\nIt will clone, build, install, and launch Pip for you — and fix anything that goes wrong\nalong the way.\n\n> ```\n> Set up Pip, a macOS desktop mascot, on my Mac from\n> https:\/\/github.com\/TenzinDhonyoe\/pip-mascot\n>\n> Do all of this for me, and troubleshoot anything that fails:\n> 1. Clone the repo into ~\/Developer (create it if needed) and cd into it.\n> 2. Confirm I have full Xcode (not just the command-line tools). If `xcodebuild\n>    -version` fails or points at CommandLineTools, tell me to \n…(truncated)",
-  "resumeHeadline" : "Welcome back — 3 open plan items",
+  "resumeHeadline" : "Welcome back — uncommitted work in progress",
   "schemaVersion" : 3,
   "sourceFileCounts" : {
     "jpg" : 1,
@@ -130,11 +127,8 @@
 
   ],
   "suggestedNextSteps" : [
-    "Tackle: Commit the Orca metadata housekeeping — these got regenerated when Orca re-scanned the project. One-liner: `git add .orca\/ && git commit -m \"chore: refresh Orca project metadata\"` then `git push`. (Or just trash `PLAN…",
-    "Tackle: Fire up Pip and stress-test the NativeVibe integration — the last real code commit (`d09f87e`) added Hermes chat panel, voice input, and space agent UI. Build and launch: `cp -R build\/Build\/Products\/Release\/Pip.app \/A…",
-    "Tackle: Work on something else entirely — Pip's not broken. Unless you have a specific feature or bug in mind, this project is ready to be shelved until something bites.",
     "Review 5 uncommitted changes before continuing",
-    "Continue from last commit: Add compactBreakpoint for three_agents narrow layout"
+    "Continue from last commit: ponytail: remove masksToBounds so mood bubbles render outside window frame"
   ],
   "topLevelEntries" : [
     ".orca",
@@ -145,7 +139,6 @@
     "NativeVibeApp",
     "Pip",
     "Pip.xcodeproj",
-    "PLAN.md",
     "README.md",
     "Rocky",
     "rocky-assets",
