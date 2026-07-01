@@ -303,11 +303,8 @@ final class MascotController: NSObject {
         hosting.controller = self
         hosting.frame = container.bounds
         hosting.autoresizingMask = [.width, .height]
-        hosting.wantsLayer = true
-        hosting.layer?.masksToBounds = true
         container.addSubview(hosting)
-        container.wantsLayer = true
-        container.layer?.masksToBounds = true
+        // ponytail: masksToBounds false so mood bubbles render outside the window frame
         panel.contentView = container
         containerView = container
         hostingView = hosting
