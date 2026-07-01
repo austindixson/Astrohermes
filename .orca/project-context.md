@@ -1,11 +1,17 @@
+<!-- ORCA_CONTEXT_ID: orca-ctx-276bb6dc46d50381 -->
+<!-- ORCA_WORKSPACE: /Users/ghost/Desktop/Projects/pip-mascot -->
+<!-- ORCA_ANALYZED_AT: 2026-07-01T04:27:27Z -->
+
 # Project context
 
 > PNG · macOS · 5 layers
 
+**Context ID:** `orca-ctx-276bb6dc46d50381` · **Workspace:** `/Users/ghost/Desktop/Projects/pip-mascot` · **Analyzed:** 2026-07-01T04:27:27Z
+
 Xcode organized in 5 layers: Shell & View → Canvas System → Orchestrator → Agent Runtime → Utilities.
 
 ## Tech stack
-**Languages:** PNG, Swift, WEBP, Python
+**Languages:** PNG, Swift, Python, WEBP
 **Platforms:** macOS
 
 **Hierarchy** (presentation → core):
@@ -41,12 +47,11 @@ flowchart TB
 - **Scripts:** `scripts/` test & automation harness
 
 ## User flow
-1. **Launch** — welcome screen or resume last canvas
-2. **Open project** — folder binds workspace; Orca scans stack + architecture
-3. **Canvas** — spatial tiles: terminals, browser, plan, code, performance
-4. **Command** — voice or text to orchestrator; triage → decompose or direct tools
-5. **Agents** — parallel workers on canvas; lead synthesizes handoffs
-6. **Ship** — git commit, preview in browser tile, iterate
+1. Open workspace → 2. Assess stack & architecture → 3. Command orchestrator → 4. Execute → 5. Verify
+
+## Context binding
+Only trust `.orca/project-context.md` when its `ORCA_CONTEXT_ID` matches `orca-ctx-276bb6dc46d50381` and workspace is `/Users/ghost/Desktop/Projects/pip-mascot`. If they differ, the file is stale — re-read after switching folders or run project analysis.
 
 _Workspace:_ `/Users/ghost/Desktop/Projects/pip-mascot`
-_Analyzed:_ 2026-06-30T18:37:12Z
+_Context ID:_ `orca-ctx-276bb6dc46d50381`
+_Analyzed:_ 2026-07-01T04:27:27Z
